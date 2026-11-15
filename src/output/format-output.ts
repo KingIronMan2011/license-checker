@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import chalk from "chalk";
 import cloneDeep from "lodash.clonedeep";
 
 import type { LicenseCheckOptions, ModuleInfos } from "../types.js";
+import { dim, whiteOnRgb } from "./ansi.js";
 import { asCSV } from "./csv.js";
 import { filterAttributes } from "./filter-attributes.js";
 import { asMarkDown, asPlainVertical, asSummary, asTree } from "./renderers.js";
@@ -22,9 +22,9 @@ export function colorizeOutput(json: ModuleInfos): void {
   Object.keys(json).forEach((key) => {
     const index = key.lastIndexOf("@");
     const colorizedKey =
-      chalk.white.bgHex("#2F4F4F")(key.slice(0, index)) +
-      chalk.dim("@") +
-      chalk.white.bgHex("#008000")(key.slice(index + 1));
+      whiteOnRgb(key.slice(0, index), [47, 79, 79]) +
+      dim("@") +
+      whiteOnRgb(key.slice(index + 1), [0, 128, 0]);
     if (colorizedKey === key) {
       return;
     }

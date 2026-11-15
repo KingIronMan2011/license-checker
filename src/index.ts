@@ -1,6 +1,5 @@
 import path from "node:path";
 
-import chalk from "chalk";
 import debug from "debug";
 
 import { deleteNonDirectDependencies } from "./dependencies/direct-dependencies.js";
@@ -11,6 +10,7 @@ import {
   readClarifications,
 } from "./licenses/clarifications.js";
 import { collectLicenseResults } from "./licenses/collect-license-results.js";
+import { boldRed, supportsBasicColor } from "./output/ansi.js";
 import { getFormattedOutput } from "./output/format-output.js";
 import {
   writeIndividualLicenseFilesToDir,
@@ -198,7 +198,7 @@ export const runLicenseCheck = async (
     ?.map((license) => license.replace(/\\,/g, ",").replace(/^\s+|\s+$/g, ""));
 
   const colorizeString = (string: string) =>
-    colorize ? chalk.bold.red(string) : string;
+    colorize ? boldRed(string, supportsBasicColor()) : string;
 
   // This following block stores the licenses in the sorted object (before, the sorted object is the empty object):
   Object.keys(results)

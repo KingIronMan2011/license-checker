@@ -1,8 +1,8 @@
 import path from "node:path";
 
-import { supportsColor } from "chalk";
 import nopt from "nopt";
 
+import { supportsBasicColor } from "../output/ansi.js";
 import type { NormalizedArguments, ParsedArguments } from "../types.js";
 
 // For the format requirements of "knownOptions", see the documentation for nopt: https://www.npmjs.com/package/nopt
@@ -203,9 +203,7 @@ export function setDefaultArguments(
     argumentsWithDefaults.color === null ||
     argumentsWithDefaults.color === undefined
   ) {
-    argumentsWithDefaults.color = supportsColor
-      ? supportsColor.hasBasic
-      : false;
+    argumentsWithDefaults.color = supportsBasicColor();
   }
 
   if (

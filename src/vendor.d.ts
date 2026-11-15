@@ -32,14 +32,3 @@ declare module "@npmcli/package-json" {
   };
   export default PackageJson;
 }
-
-declare module "spdx-correct" {
-  export default function spdxCorrect(value: string): string | undefined;
-}
-
-declare module "spdx-satisfies" {
-  export default function spdxSatisfies(
-    expression: string,
-    licenses: string[],
-  ): boolean;
-}

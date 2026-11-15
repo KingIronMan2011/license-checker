@@ -1,4 +1,4 @@
-import spdxExpressionParse from "spdx-expression-parse";
+import { parseSpdxExpression } from "./spdx.js";
 
 const MIT_LICENSE = /ermission is hereby granted, free of charge, to any/;
 const BSD_LICENSE =
@@ -40,7 +40,7 @@ export const detectLicenseTitle = (str = "undefined"): string | null => {
 
   try {
     // Simply check if the string is a valid SPDX expression:
-    spdxExpressionParse(str);
+    parseSpdxExpression(str);
 
     // No need for additional parsing efforts:
     return str;

@@ -1,6 +1,7 @@
-import spdxCorrect from "spdx-correct";
-import spdxSatisfies from "spdx-satisfies";
-
+import {
+  correctSpdxExpression,
+  spdxExpressionSatisfies,
+} from "../licenses/spdx.js";
 import type { LicenseCheckOptions, LicenseValue } from "../types.js";
 
 const LICENSE_TITLE_UNKNOWN = "UNKNOWN";
@@ -14,7 +15,8 @@ const invertResultOf =
   (fn: (spdx: string) => boolean) =>
   (spdx: string): boolean =>
     !fn(spdx);
-const spdxIsValid = (spdx: string): boolean => spdxCorrect(spdx) === spdx;
+const spdxIsValid = (spdx: string): boolean =>
+  correctSpdxExpression(spdx) === spdx;
 
 const parsePolicyList = (value: string): string[] => {
   const licenses: string[] = [];
@@ -158,12 +160,12 @@ export function getLicenseMatch(
         : license;
       const transformed = transformBSD(withoutTrailingAsterisk);
 
-      const correctedSpdx = spdxCorrect(transformed);
+      const correctedSpdx = correctSpdxExpression(transformed);
       if (
         invalidSPDXLicenses.indexOf(transformed) >= 0 ||
         (correctedSpdx &&
           validSPDXLicenses.length > 0 &&
-          spdxSatisfies(correctedSpdx, validSPDXLicenses))
+          spdxExpressionSatisfies(correctedSpdx, validSPDXLicenses))
       ) {
         match = true;
       }
