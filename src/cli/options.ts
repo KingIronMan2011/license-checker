@@ -13,6 +13,7 @@ export function getNormalizedArguments(args: string[]): CliOptions {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--silent" || arg === "-s") options.silent = true;
+    else if (arg === "--check") options.check = true;
     else if (arg === "--production" || arg === "--prod") {
       options.production = true;
       options.development = false;
@@ -45,6 +46,7 @@ function printHelp(): void {
   console.log(`Usage: license-checker [project-directory] [options]
 
 Options:
+  --check               List dependencies with no license metadata or license file
   --silent, -s          Do not print the license report
   --extract, --files <dir> Copy license files into <dir>
   --production, --prod  Scan production dependencies only

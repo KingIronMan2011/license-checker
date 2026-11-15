@@ -14,6 +14,7 @@ export interface LicenseCheckOptions {
   production?: boolean;
   development?: boolean;
   silent?: boolean;
+  check?: boolean;
   files?: string;
 }
 

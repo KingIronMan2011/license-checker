@@ -17,3 +17,4 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 - Terminal license reports with `--silent`, `--production`/`--prod`, and `--development`/`--dev` options.
 - License file extraction with `--extract`/`--files`, organized by dependency scope, package, and version.
 - Programmatic `runLicenseCheck` API.
+- `--check` to report dependencies missing both license metadata and a license file, with a nonzero exit status for CI.
