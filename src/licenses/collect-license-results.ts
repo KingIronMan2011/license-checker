@@ -2,10 +2,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import semver from "semver";
-
 import { walkDependencyTree } from "../dependencies/walk-dependency-tree.js";
 import { firstDefined } from "../shared/first-defined.js";
+import { semverSatisfies } from "../shared/semver.js";
 import type {
   Clarification,
   Clarifications,
@@ -41,7 +40,7 @@ const findClarification = (
   return clarifications[packageName]?.find(
     (clarification) =>
       version === clarification.semverRange ||
-      semver.satisfies(version, clarification.semverRange),
+      semverSatisfies(version, clarification.semverRange),
   );
 };
 
