@@ -34,6 +34,7 @@ export const knownOptions = {
   production: Boolean,
   relativeLicensePath: Boolean,
   relativeModulePath: Boolean,
+  silent: Boolean,
   start: String,
   summary: Boolean,
   unknown: Boolean,
@@ -76,6 +77,7 @@ export const shortHands = {
  * @property {boolean=} production Only show production dependencies.
  * @property {boolean=} relativeLicensePath Output license file locations as relative paths.
  * @property {boolean=} relativeModulePath Output module locations as relative paths.
+ * @property {boolean=} silent Suppress the terminal license report.
  * @property {string=} start Path to start checking dependencies from.
  * @property {boolean=} summary Output a summary of the license usage.
  * @property {boolean=} unknown Report guessed licenses as unknown licenses.

@@ -28,12 +28,13 @@ const CONTAINS_LICENSE_TERM = /(license|licence|lizenz)/gi;
 const IS_FILE_REFERENCE = /SEE LICENSE IN (.*)/i;
 const UNLICENSED = /UNLICENSED/i;
 
-export const detectLicenseTitle = (str = "undefined"): string | null => {
-  if (typeof str !== "string") {
+export const detectLicenseTitle = (input = "undefined"): string | null => {
+  if (typeof input !== "string") {
     throw new Error(
-      `Wrong type for parameter "str" ("${str}"): Must be of type string`,
+      `Wrong type for parameter "str" ("${input}"): Must be of type string`,
     );
   }
+  const str = input.replace("\n", "");
 
   let match: RegExpExecArray | null;
   let version: string;
@@ -46,11 +47,6 @@ export const detectLicenseTitle = (str = "undefined"): string | null => {
     return str;
   } catch {
     // Fail silently and continue with additional parsing efforts:
-  }
-
-  if (str) {
-    // biome-ignore lint/style/noParameterAssign: TODO this whole function is a bit funky, and I'm too lazy to clean this up NOW :D
-    str = str.replace("\n", "");
   }
 
   if (!str || str === "undefined") {

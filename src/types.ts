@@ -33,6 +33,7 @@ export interface LicenseCheckOptions {
   files?: string;
   markdown?: boolean;
   plainVertical?: boolean;
+  silent?: boolean;
   limitAttributes?: string;
   angularCli?: boolean;
 }

@@ -19,7 +19,7 @@ exitProcessOrWarnIfNeeded({ unknownArgs, parsedArgs });
 
 try {
   const foundLicensesJson = await runLicenseCheck(parsedArgs);
-  if (!parsedArgs.out) {
+  if (!parsedArgs.out && !parsedArgs.silent) {
     if (shouldColorizeOutput(parsedArgs)) {
       colorizeOutput(foundLicensesJson);
     }
