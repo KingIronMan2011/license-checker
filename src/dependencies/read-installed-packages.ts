@@ -1,6 +1,8 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import Arborist from "@npmcli/arborist";
 import type { ArboristEdge, ArboristNode } from "@npmcli/arborist";
-import PackageJson from "@npmcli/package-json";
 
 import type { DependencyPackage } from "../types.js";
 
@@ -18,10 +20,26 @@ const readPackageJsonFromDisk = async (
   packagePath: string,
 ): Promise<DependencyPackage> => {
   try {
-    const packageJson = await PackageJson.prepare(packagePath);
-    return clonePackageJson(packageJson.content);
+    const content = await fs.readFile(
+      path.join(packagePath, "package.json"),
+      "utf8",
+    );
+    return clonePackageJson(JSON.parse(content));
   } catch {
-    return {};
+    try {
+      const source = await fs.readFile(
+        path.join(packagePath, "index.js"),
+        "utf8",
+      );
+      const manifest = /\/\*\*package(?:\s|$)([\s\S]*?)\*\*\//m.exec(
+        source,
+      )?.[1];
+      if (!manifest) return {};
+      const json = manifest.replace(/^\s*\*/gm, "");
+      return clonePackageJson(JSON.parse(json));
+    } catch {
+      return {};
+    }
   }
 };
 

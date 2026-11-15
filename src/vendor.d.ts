@@ -25,10 +25,3 @@ declare module "@npmcli/arborist" {
     loadActual(): Promise<ArboristNode>;
   }
 }
-
-declare module "@npmcli/package-json" {
-  const PackageJson: {
-    prepare(path: string): Promise<{ content: Record<string, unknown> }>;
-  };
-  export default PackageJson;
-}

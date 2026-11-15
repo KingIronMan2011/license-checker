@@ -48,8 +48,7 @@
     "types": "tsc --noEmit"
   },
   "dependencies": {
-    "@npmcli/arborist": "10.0.4",
-    "@npmcli/package-json": "8.0.1"
+    "@npmcli/arborist": "10.0.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
