@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import cloneDeep from "lodash.clonedeep";
-
 import type { LicenseCheckOptions, ModuleInfos } from "../types.js";
 import { dim, whiteOnRgb } from "./ansi.js";
 import { asCSV } from "./csv.js";
@@ -60,7 +58,12 @@ export function getFormattedOutput(
   args: LicenseCheckOptions,
 ): string {
   let filteredJson = filterJson(args.limitAttributes, modulesWithVersions);
-  const jsonCopy = cloneDeep(filteredJson);
+  const jsonCopy = Object.fromEntries(
+    Object.entries(filteredJson).map(([moduleName, moduleInfo]) => [
+      moduleName,
+      { ...moduleInfo },
+    ]),
+  ) as ModuleInfos;
 
   if (args.files) {
     const filesDirectory = args.files;
