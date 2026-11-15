@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 
 ## Unreleased
 
+## v1.1.2
+
+### Fixed
+
+- Remove stale license files from previous `--files` runs using a manifest, while preserving unrelated files in the output directory.
+
 ## v1.1.1
 
 ### Changed
