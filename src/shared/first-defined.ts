@@ -6,4 +6,5 @@ export function firstDefined<T>(
       return value;
     }
   }
+  return undefined;
 }

@@ -10,8 +10,14 @@ interface ReadOptions {
   log?: (...args: unknown[]) => void;
 }
 
-const clonePackageJson = (packageJson: unknown): DependencyPackage =>
-  JSON.parse(JSON.stringify(packageJson ?? {})) as DependencyPackage;
+const parsePackageJson = (content: string): DependencyPackage => {
+  const packageJson: unknown = JSON.parse(content);
+  return packageJson &&
+    typeof packageJson === "object" &&
+    !Array.isArray(packageJson)
+    ? (packageJson as DependencyPackage)
+    : {};
+};
 
 const readPackageJsonFromDisk = async (
   packagePath: string,
@@ -21,7 +27,7 @@ const readPackageJsonFromDisk = async (
       path.join(packagePath, "package.json"),
       "utf8",
     );
-    return clonePackageJson(JSON.parse(content));
+    return parsePackageJson(content);
   } catch {
     try {
       const source = await fs.readFile(
@@ -33,7 +39,7 @@ const readPackageJsonFromDisk = async (
       )?.[1];
       if (!manifest) return {};
       const json = manifest.replace(/^\s*\*/gm, "");
-      return clonePackageJson(JSON.parse(json));
+      return parsePackageJson(json);
     } catch {
       return {};
     }
@@ -123,6 +129,7 @@ const findDependency = (
       ? null
       : (currentPackageJson.parent ?? null);
   }
+  return undefined;
 };
 
 const unmarkExtraneous = (
@@ -169,6 +176,16 @@ const readInstalledPackages = async (
 ): Promise<DependencyPackage> => {
   const rootPath = path.resolve(folder);
   const convertedNodes = new Map<string, DependencyPackage>();
+  const packageJsonCache = new Map<string, Promise<DependencyPackage>>();
+
+  const getCachedPackageJson = (packagePath: string) => {
+    let packageJson = packageJsonCache.get(packagePath);
+    if (!packageJson) {
+      packageJson = readPackageJsonFromDisk(packagePath);
+      packageJsonCache.set(packagePath, packageJson);
+    }
+    return packageJson;
+  };
 
   const convertNode = async (
     installedPath: string,
@@ -182,9 +199,7 @@ const readInstalledPackages = async (
     const realPath = await fs
       .realpath(installedPath)
       .catch(() => installedPath);
-    const packageJson = {
-      ...clonePackageJson(await readPackageJsonFromDisk(realPath)),
-    };
+    const packageJson = { ...(await getCachedPackageJson(realPath)) };
     const isRoot = installedPath === rootPath;
     const dependencySpecs = isRoot
       ? getRootDependencySpecs(packageJson)

@@ -164,7 +164,7 @@ export const detectLicenseTitle = (input = "undefined"): string | null => {
   match = IS_URL.exec(str) || IS_FILE_REFERENCE.exec(str);
 
   if (match) {
-    const matchedUrl = match[1];
+    const matchedUrl = match[1] ?? "";
     CONTAINS_LICENSE_TERM.lastIndex = 0;
     CONTAINS_URLS_ENDING_WITH.lastIndex = 0;
 

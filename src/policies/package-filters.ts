@@ -38,7 +38,8 @@ export const includePackages = (
         matchesPackageSelector(packageName, whitelistPackage),
       ) !== -1
     ) {
-      resultJson[packageName] = packages[packageName];
+      const moduleInfo = packages[packageName];
+      if (moduleInfo) resultJson[packageName] = moduleInfo;
     }
   });
 
@@ -61,7 +62,8 @@ export const excludePackages = (
         matchesPackageSelector(packageName, blacklistPackage),
       ) === -1
     ) {
-      resultJson[packageName] = packages[packageName];
+      const moduleInfo = packages[packageName];
+      if (moduleInfo) resultJson[packageName] = moduleInfo;
     }
   });
 

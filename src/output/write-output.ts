@@ -18,7 +18,9 @@ export async function writeIndividualLicenseFilesToDir(
 ): Promise<void> {
   await fs.promises.mkdir(outDir, { recursive: true });
   for (const key of Object.keys(resultJson)) {
-    const { licenseFile } = resultJson[key];
+    const moduleInfo = resultJson[key];
+    if (!moduleInfo) continue;
+    const { licenseFile } = moduleInfo;
 
     if (licenseFile && fs.existsSync(licenseFile)) {
       const outPath = path.join(outDir, `${key}-LICENSE.txt`);

@@ -8,6 +8,14 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 
 ## Unreleased
 
+## v1.1.1
+
+### Changed
+
+- Completed the TypeScript modernization with a full rewrite of the license scanner, CLI, dependency resolution, and report rendering.
+- Replaced legacy helper packages with native TypeScript implementations and strengthened strict compiler checks.
+- Reduced manifest-loading work by removing a redundant JSON clone and caching manifests during each scan.
+
 ## v1.1.0
 
 ### Added

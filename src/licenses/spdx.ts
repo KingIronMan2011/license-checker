@@ -47,8 +47,8 @@ function tokenize(expression: string): Token[] {
       /^(DocumentRef-([A-Za-z0-9.-]+):LicenseRef-([A-Za-z0-9.-]+))/.exec(rest);
     const licenseRef = /^LicenseRef-([A-Za-z0-9.-]+)/.exec(rest);
     if (documentLicenseRef) {
-      tokens.push({ type: "licenseRef", value: documentLicenseRef[1] });
-      offset += documentLicenseRef[1].length;
+      tokens.push({ type: "licenseRef", value: documentLicenseRef[1]! });
+      offset += documentLicenseRef[1]!.length;
       continue;
     }
     if (licenseRef) {
@@ -62,7 +62,7 @@ function tokenize(expression: string): Token[] {
     if (operator) {
       tokens.push({
         type: "operator",
-        value: operator[1].toUpperCase() as "AND" | "OR" | "WITH",
+        value: operator[1]!.toUpperCase() as "AND" | "OR" | "WITH",
       });
       offset += operator[0].length;
       continue;
@@ -297,7 +297,7 @@ const licensesByFamily = new Map<string, string[]>();
 for (const licenseId of SPDX_LICENSE_IDS) {
   const match = /^(.*)-\d+\.\d+$/.exec(licenseId);
   if (!match) continue;
-  const family = match[1];
+  const family = match[1]!;
   const versions = licensesByFamily.get(family) ?? [];
   versions.push(licenseId);
   licensesByFamily.set(family, versions);
@@ -306,7 +306,7 @@ for (const licenseId of SPDX_LICENSE_IDS) {
 const singleVersionAliases: ReadonlyArray<readonly [string, string]> =
   Array.from(licensesByFamily.entries())
     .filter(([family, versions]) => family !== "APL" && versions.length === 1)
-    .map(([family, versions]) => [family, versions[0]] as const);
+    .map(([family, versions]) => [family, versions[0]!] as const);
 
 const lastResorts: ReadonlyArray<readonly [string, string]> = [
   ...basicLastResorts,

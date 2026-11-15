@@ -25,6 +25,7 @@ export function getRepositoryUrl({
       .replace("git@github.com:", "https://github.com/")
       .replace(/\.git$/, "");
   }
+  return undefined;
 }
 
 export function getAuthorDetails({

@@ -57,7 +57,8 @@ export function walkDependencyTree(
     }
 
     Object.keys(dependencies).forEach((dependencyName) => {
-      walk(dependencies[dependencyName], currentDepth + 1);
+      const child = dependencies[dependencyName];
+      if (child !== undefined) walk(child, currentDepth + 1);
     });
   };
 

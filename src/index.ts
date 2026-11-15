@@ -123,42 +123,43 @@ export const runLicenseCheck = async (
   Object.keys(results)
     .toSorted()
     .forEach((item) => {
-      if (results[item].private) {
-        results[item].licenses = colorizeString(LICENSE_TITLE_UNLICENSED);
+      const moduleInfo = results[item];
+      if (!moduleInfo) return;
+
+      if (moduleInfo.private) {
+        moduleInfo.licenses = colorizeString(LICENSE_TITLE_UNLICENSED);
       }
 
-      if (!results[item].licenses) {
-        results[item].licenses = colorizeString(LICENSE_TITLE_UNKNOWN);
+      if (!moduleInfo.licenses) {
+        moduleInfo.licenses = colorizeString(LICENSE_TITLE_UNKNOWN);
       }
 
       if (
         options.unknown &&
-        results[item].licenses &&
-        results[item].licenses !== LICENSE_TITLE_UNKNOWN &&
-        String(results[item].licenses).indexOf("*") > -1
+        moduleInfo.licenses &&
+        moduleInfo.licenses !== LICENSE_TITLE_UNKNOWN &&
+        String(moduleInfo.licenses).indexOf("*") > -1
       ) {
-        results[item].licenses = colorizeString(LICENSE_TITLE_UNKNOWN);
+        moduleInfo.licenses = colorizeString(LICENSE_TITLE_UNKNOWN);
       }
 
-      if (results[item]) {
-        if (
-          options.relativeModulePath &&
-          results[item].path !== null &&
-          results[item].path !== undefined
-        ) {
-          results[item].path = path.relative(options.start, results[item].path);
-        }
+      if (
+        options.relativeModulePath &&
+        moduleInfo.path !== null &&
+        moduleInfo.path !== undefined
+      ) {
+        moduleInfo.path = path.relative(options.start, moduleInfo.path);
+      }
 
-        if (options.onlyunknown) {
-          if (
-            String(results[item].licenses).indexOf("*") > -1 ||
-            String(results[item].licenses).indexOf(LICENSE_TITLE_UNKNOWN) > -1
-          ) {
-            sorted[item] = results[item];
-          }
-        } else {
-          sorted[item] = results[item];
+      if (options.onlyunknown) {
+        if (
+          String(moduleInfo.licenses).indexOf("*") > -1 ||
+          String(moduleInfo.licenses).indexOf(LICENSE_TITLE_UNKNOWN) > -1
+        ) {
+          sorted[item] = moduleInfo;
         }
+      } else {
+        sorted[item] = moduleInfo;
       }
     });
 

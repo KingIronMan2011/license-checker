@@ -59,122 +59,65 @@ const shouldSkipPackage = ({
     (options.development && !packageJson.extraneous && !packageJson.root),
   );
 
-const collectPackageLicenseInfo = ({
-  packageJson: currentExtendedPackageJson,
-  data,
+const addPackageMetadata = ({
+  moduleInfo,
+  packageJson,
+  clarification,
   options,
 }: {
+  moduleInfo: ModuleInfo;
   packageJson: DependencyPackage;
-  data: ModuleInfos;
+  clarification?: Clarification;
   options: LicenseCollectionOptions;
-}): boolean => {
-  const moduleInfo = { ...INITIAL_MODULE_INFO };
-  const currentPackageNameAndVersion = getPackageNameAndVersion(
-    currentExtendedPackageJson,
-  );
-
-  let licenseFilesInCurrentModuleDirectory: string[] = [];
-  let licenseData: LicenseValue | LicenseValue[] | string | undefined;
-  let licenseFile: string | undefined;
-  let noticeFiles: string[] = [];
-  const clarification = findClarification(
-    options.clarifications,
-    currentExtendedPackageJson,
-  );
-  let passedClarificationCheck = !clarification?.checksum;
-  if (clarification) {
-    clarification.used = true;
-  }
-
-  if (
-    shouldSkipPackage({
-      packageJson: currentExtendedPackageJson,
-      data,
-      options,
-    })
-  ) {
-    return false;
-  }
-
-  if (currentExtendedPackageJson.private) {
-    moduleInfo.private = true;
-  }
-
-  data[currentPackageNameAndVersion] = moduleInfo;
-
-  // Include property in output unless custom format has set property explicitly to false:
-  const mustInclude = (propertyName = "") =>
-    options?.customFormat?.[propertyName] !== false;
+}): string | undefined => {
+  const mustInclude = (propertyName: string) =>
+    options.customFormat?.[propertyName] !== false;
 
   if (mustInclude("repository")) {
     const repositoryUrl = getRepositoryUrl({
       clarificationRepository: clarification?.repository,
-      jsonRepository: currentExtendedPackageJson?.repository,
+      jsonRepository: packageJson.repository,
     });
-
-    if (repositoryUrl) {
-      moduleInfo.repository = repositoryUrl;
-    }
+    if (repositoryUrl) moduleInfo.repository = repositoryUrl;
   }
 
   if (mustInclude("url")) {
-    // TODO: Figure out where the check for currentExtendedPackageJson.url.web comes from. It's in the original license-checker,
-    //       but I can't find any documentation on it.
+    // Older manifests may store the homepage in a nested `url.web` field.
     const url = firstDefined(
       clarification?.url,
-      typeof currentExtendedPackageJson?.url === "object"
-        ? currentExtendedPackageJson.url.web
-        : undefined,
+      typeof packageJson.url === "object" ? packageJson.url.web : undefined,
     );
-    if (url) {
-      moduleInfo.url = url;
-    }
+    if (url) moduleInfo.url = url;
   }
 
-  if (typeof currentExtendedPackageJson.author === "object") {
+  if (typeof packageJson.author === "object") {
     const { publisher, email, url } = getAuthorDetails({
       clarification,
-      author: currentExtendedPackageJson?.author,
+      author: packageJson.author,
     });
-
-    if (mustInclude("publisher") && publisher) {
-      moduleInfo.publisher = publisher;
-    }
-
-    if (mustInclude("email") && email) {
-      moduleInfo.email = email;
-    }
-
-    // moduleInfo.url can for some reason already be set to currentExtendedPackageJson.url.web further up in the code,
-    // so we only set it if it's not already set.
+    if (mustInclude("publisher") && publisher) moduleInfo.publisher = publisher;
+    if (mustInclude("email") && email) moduleInfo.email = email;
     if (typeof moduleInfo.url !== "undefined" && mustInclude("url") && url) {
       moduleInfo.url = url;
     }
   }
 
-  if (options.unknown) {
-    moduleInfo.dependencyPath = currentExtendedPackageJson.path;
-  }
+  if (options.unknown) moduleInfo.dependencyPath = packageJson.path;
 
-  const modulePath = firstDefined(
-    clarification?.path,
-    currentExtendedPackageJson?.path,
-  );
+  const modulePath = firstDefined(clarification?.path, packageJson.path);
   if (mustInclude("path") && typeof modulePath === "string") {
     moduleInfo.path = modulePath;
   }
+  storeReadmeInPackageJsonIfExists(modulePath, packageJson);
+  return modulePath;
+};
 
-  // Load the module README into package metadata when available.
-  storeReadmeInPackageJsonIfExists(modulePath, currentExtendedPackageJson);
-
-  // Try to get the license information from the clarification file or from the package.json file:
-  licenseData =
-    clarification?.licenses ??
-    currentExtendedPackageJson.license ??
-    currentExtendedPackageJson.licenses;
-
+const addLicenseMetadata = (
+  moduleInfo: ModuleInfo,
+  licenseData: LicenseValue | LicenseValue[] | undefined,
+  readme: string | undefined,
+): void => {
   if (licenseData) {
-    // License information has been collected from either the clarification file or from the package.json file
     if (Array.isArray(licenseData) && licenseData.length > 0) {
       moduleInfo.licenses = licenseData.flatMap((moduleLicense) => {
         const moduleLicenseTypeOrName =
@@ -195,28 +138,45 @@ const collectPackageLicenseInfo = ({
       const licenseTitle = detectLicenseTitle(licenseData);
       if (licenseTitle) moduleInfo.licenses = licenseTitle;
     }
-  } else if (detectLicenseTitle(currentExtendedPackageJson.readme)) {
-    // Try to get the license information from the README file if neither the clarification file nor the package.json
-    // file contained any license information:
-    const licenseTitle = detectLicenseTitle(currentExtendedPackageJson.readme);
+  } else {
+    const licenseTitle = detectLicenseTitle(readme);
     if (licenseTitle) moduleInfo.licenses = licenseTitle;
   }
 
-  if (Array.isArray(moduleInfo.licenses)) {
-    if (moduleInfo.licenses.length === 1) {
-      moduleInfo.licenses = moduleInfo.licenses[0];
-    }
+  if (Array.isArray(moduleInfo.licenses) && moduleInfo.licenses.length === 1) {
+    moduleInfo.licenses = moduleInfo.licenses[0];
   }
+};
+
+const processLicenseFiles = ({
+  modulePath,
+  packagePath,
+  packageNameAndVersion,
+  moduleInfo,
+  clarification,
+  options,
+}: {
+  modulePath?: string;
+  packagePath?: string;
+  packageNameAndVersion: string;
+  moduleInfo: ModuleInfo;
+  clarification?: Clarification;
+  options: LicenseCollectionOptions;
+}): string | undefined => {
+  let licenseFiles: string[] = [];
+  let noticeFiles: string[] = [];
+  let passedClarificationCheck = !clarification?.checksum;
+  const mustInclude = (propertyName: string) =>
+    options.customFormat?.[propertyName] !== false;
 
   if (clarification?.licenseFile) {
-    licenseFilesInCurrentModuleDirectory = [clarification.licenseFile];
-  } else if (modulePath && fs.existsSync(modulePath)) {
-    const filesInModuleDirectory = fs.readdirSync(modulePath);
-    licenseFilesInCurrentModuleDirectory = findLicenseFiles(
-      filesInModuleDirectory,
-    );
+    licenseFiles = [clarification.licenseFile];
+  }
 
-    noticeFiles = filesInModuleDirectory.filter((filename) => {
+  if (modulePath && fs.existsSync(modulePath)) {
+    const files = fs.readdirSync(modulePath);
+    if (!clarification?.licenseFile) licenseFiles = findLicenseFiles(files);
+    noticeFiles = files.filter((filename) => {
       const uppercased = filename.toUpperCase();
       const name = path
         .basename(uppercased)
@@ -225,134 +185,91 @@ const collectPackageLicenseInfo = ({
     });
   }
 
-  for (const [
-    index,
-    filename,
-  ] of licenseFilesInCurrentModuleDirectory.entries()) {
+  for (const [index, filename] of licenseFiles.entries()) {
     if (!modulePath) continue;
-    licenseFile = path.join(modulePath, filename);
-    // Checking that the file is in fact a normal file and not a directory for example.
-    if (fs.lstatSync(licenseFile).isFile()) {
-      let currentLicenceFilesContent;
+    const licenseFile = path.join(modulePath, filename);
+    if (!fs.lstatSync(licenseFile).isFile()) continue;
+    let licenseContent: string | undefined;
 
-      if (
-        !moduleInfo.licenses ||
-        (Array.isArray(moduleInfo.licenses)
-          ? moduleInfo.licenses.some(
-              (license) => license === LICENSE_TITLE_UNKNOWN,
-            )
-          : typeof moduleInfo.licenses === "string" &&
-            moduleInfo.licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1)
-        // TODO: Should we override a custom license?
-        // || moduleInfo.licenses.indexOf('Custom:') === 0
-      ) {
-        //Only re-check the license if we didn't get it from elsewhere
-        currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-          encoding: "utf8",
-        });
+    const licenseNeedsDetection =
+      !moduleInfo.licenses ||
+      (Array.isArray(moduleInfo.licenses)
+        ? moduleInfo.licenses.some(
+            (license) =>
+              license === LICENSE_TITLE_UNKNOWN ||
+              (typeof license === "string" && license.startsWith("Custom:")),
+          )
+        : typeof moduleInfo.licenses === "string" &&
+          (moduleInfo.licenses.includes(LICENSE_TITLE_UNKNOWN) ||
+            moduleInfo.licenses.startsWith("Custom:")));
+    if (licenseNeedsDetection) {
+      licenseContent = fs.readFileSync(licenseFile, "utf8");
+      const licenseTitle = detectLicenseTitle(licenseContent);
+      if (licenseTitle) moduleInfo.licenses = licenseTitle;
+    }
 
-        const licenseTitle = detectLicenseTitle(currentLicenceFilesContent);
-        if (licenseTitle) moduleInfo.licenses = licenseTitle;
+    if (index !== 0) continue;
+
+    if (clarification && !passedClarificationCheck) {
+      licenseContent ??= fs.readFileSync(licenseFile, "utf8");
+      const sha256 = createHash("sha256").update(licenseContent).digest("hex");
+      if (clarification.checksum !== sha256) {
+        throw new Error(
+          `Clarification checksum mismatch for ${packageNameAndVersion} :(` +
+            `\nFile checked: ${licenseFile}`,
+        );
       }
+      passedClarificationCheck = true;
+    }
 
-      if (index === 0) {
-        // Treat the file with the highest precedence as licenseFile
-        if (clarification !== undefined && !passedClarificationCheck) {
-          if (!currentLicenceFilesContent) {
-            currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-              encoding: "utf8",
-            });
-          }
+    if (mustInclude("licenseFile")) {
+      moduleInfo.licenseFile = firstDefined(
+        clarification?.licenseFile,
+        options.basePath
+          ? path.relative(options.basePath, licenseFile)
+          : licenseFile,
+      );
+    }
 
-          const sha256 = createHash("sha256")
-            .update(currentLicenceFilesContent)
-            .digest("hex");
-          if (clarification.checksum !== sha256) {
-            throw new Error(
-              `Clarification checksum mismatch for ${currentPackageNameAndVersion} :(\nFile checked: ${licenseFile}`,
-            );
-          }
-
-          passedClarificationCheck = true;
-        }
-
-        if (mustInclude("licenseFile")) {
-          moduleInfo.licenseFile = firstDefined(
-            clarification?.licenseFile,
-            options.basePath
-              ? path.relative(options.basePath, licenseFile)
-              : licenseFile,
-          );
-        }
-
-        if (mustInclude("licenseText") && options.customFormat) {
-          if (clarification?.licenseText) {
-            moduleInfo.licenseText = clarification.licenseText;
-          } else {
-            if (!currentLicenceFilesContent) {
-              currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-                encoding: "utf8",
-              });
-            }
-
-            if (options.args && !options.args.csv) {
-              moduleInfo.licenseText = currentLicenceFilesContent.trim();
-            } else {
-              moduleInfo.licenseText = currentLicenceFilesContent
+    if (mustInclude("licenseText") && options.customFormat) {
+      if (clarification?.licenseText) {
+        moduleInfo.licenseText = clarification.licenseText;
+      } else {
+        licenseContent ??= fs.readFileSync(licenseFile, "utf8");
+        moduleInfo.licenseText =
+          options.args && !options.args.csv
+            ? licenseContent.trim()
+            : licenseContent
                 .replace(/"/g, "'")
                 .replace(/\r?\n|\r/g, " ")
                 .trim();
-            }
-          }
+      }
 
-          if (clarification?.licenseStart) {
-            const startIndex = moduleInfo.licenseText.indexOf(
-              clarification.licenseStart,
-            );
-            let endIndex;
+      if (clarification?.licenseStart) {
+        const startIndex = moduleInfo.licenseText.indexOf(
+          clarification.licenseStart,
+        );
+        const endIndex = clarification.licenseEnd
+          ? moduleInfo.licenseText.indexOf(clarification.licenseEnd, startIndex)
+          : moduleInfo.licenseText.length;
+        moduleInfo.licenseText = moduleInfo.licenseText.substring(
+          startIndex,
+          endIndex,
+        );
+      }
+    }
 
-            if (clarification?.licenseEnd) {
-              endIndex = moduleInfo.licenseText.indexOf(
-                clarification.licenseEnd,
-                startIndex,
-              );
-            } else {
-              endIndex = moduleInfo.licenseText.length;
-            }
-
-            moduleInfo.licenseText = moduleInfo.licenseText.substring(
-              startIndex,
-              endIndex,
-            );
-          }
+    if (mustInclude("copyright") && options.customFormat) {
+      if (clarification?.copyright) {
+        moduleInfo.copyright = clarification.copyright;
+      } else {
+        licenseContent ??= fs.readFileSync(licenseFile, "utf8");
+        const copyrightLines = getCopyrightLines(licenseContent);
+        if (copyrightLines.length > 0) {
+          moduleInfo.copyright = copyrightLines[0]!.replace(/\n/g, ". ").trim();
         }
-
-        if (mustInclude("copyright") && options.customFormat) {
-          if (clarification?.copyright) {
-            moduleInfo.copyright = clarification.copyright;
-          } else {
-            if (!currentLicenceFilesContent) {
-              currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-                encoding: "utf8",
-              });
-            }
-
-            const linesWithCopyright = getCopyrightLines(
-              currentLicenceFilesContent,
-            );
-
-            if (linesWithCopyright.length > 0) {
-              moduleInfo.copyright = linesWithCopyright[0]
-                .replace(/\n/g, ". ")
-                .trim();
-            }
-
-            // Mark files with multiple copyright statements. This might be
-            // an indicator to take a closer look at the LICENSE file.
-            if (linesWithCopyright.length > 1) {
-              moduleInfo.copyright = `${moduleInfo.copyright}*`;
-            }
-          }
+        if (copyrightLines.length > 1) {
+          moduleInfo.copyright = `${moduleInfo.copyright}*`;
         }
       }
     }
@@ -362,44 +279,86 @@ const collectPackageLicenseInfo = ({
     throw new Error("All clarifications must come with a checksum");
   }
 
-  // TODO: How do clarifications interact with notice files?
+  let noticeFile: string | undefined;
   for (const filename of noticeFiles) {
-    const packagePath = currentExtendedPackageJson.path;
     if (!packagePath) continue;
     const file = path.join(packagePath, filename);
     if (fs.lstatSync(file).isFile()) {
-      moduleInfo.noticeFile = options.basePath
+      noticeFile = options.basePath
         ? path.relative(options.basePath, file)
         : file;
     }
   }
+  return noticeFile;
+};
 
-  if (!currentExtendedPackageJson.name || !currentExtendedPackageJson.version) {
-    delete data[currentPackageNameAndVersion];
+const collectPackageLicenseInfo = ({
+  packageJson,
+  data,
+  options,
+}: {
+  packageJson: DependencyPackage;
+  data: ModuleInfos;
+  options: LicenseCollectionOptions;
+}): boolean => {
+  const moduleInfo = { ...INITIAL_MODULE_INFO };
+  const packageNameAndVersion = getPackageNameAndVersion(packageJson);
+  const clarification = findClarification(options.clarifications, packageJson);
+  if (clarification) clarification.used = true;
+
+  if (shouldSkipPackage({ packageJson, data, options })) return false;
+
+  if (packageJson.private) moduleInfo.private = true;
+  data[packageNameAndVersion] = moduleInfo;
+
+  const modulePath = addPackageMetadata({
+    moduleInfo,
+    packageJson,
+    clarification,
+    options,
+  });
+  const licenseData =
+    clarification?.licenses ?? packageJson.license ?? packageJson.licenses;
+  addLicenseMetadata(moduleInfo, licenseData, packageJson.readme);
+
+  const noticeFile = processLicenseFiles({
+    modulePath,
+    packagePath: packageJson.path,
+    packageNameAndVersion,
+    moduleInfo,
+    clarification,
+    options,
+  });
+  if (noticeFile) moduleInfo.noticeFile = noticeFile;
+
+  if (!packageJson.name || !packageJson.version) {
+    delete data[packageNameAndVersion];
   }
 
   if (options.customFormat) {
-    Object.keys(options.customFormat).forEach((customFormatKey) => {
+    const mustInclude = (propertyName: string) =>
+      options.customFormat?.[propertyName] !== false;
+    for (const customFormatKey of Object.keys(options.customFormat)) {
       if (
-        mustInclude(customFormatKey) &&
-        moduleInfo[customFormatKey] === undefined
+        !mustInclude(customFormatKey) ||
+        moduleInfo[customFormatKey] !== undefined
       ) {
-        const value = firstDefined(
-          clarification?.[customFormatKey],
-          typeof currentExtendedPackageJson[customFormatKey] === "string"
-            ? currentExtendedPackageJson[customFormatKey]
-            : options.customFormat?.[customFormatKey],
-        );
-        if (typeof value === "string" || typeof value === "boolean") {
-          moduleInfo[customFormatKey] = value;
-        }
+        continue;
       }
-    });
+      const value = firstDefined(
+        clarification?.[customFormatKey],
+        typeof packageJson[customFormatKey] === "string"
+          ? packageJson[customFormatKey]
+          : options.customFormat[customFormatKey],
+      );
+      if (typeof value === "string" || typeof value === "boolean") {
+        moduleInfo[customFormatKey] = value;
+      }
+    }
   }
 
   return true;
 };
-
 export const collectLicenseResults = ({
   args,
   basePath,

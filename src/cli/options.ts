@@ -80,7 +80,7 @@ function parseArguments(args: string[] = process.argv): ParsedArguments {
     if (name === "h" || name === "v") name = name === "h" ? "help" : "version";
     else if (name.length > 1 && !optionNames.includes(name)) {
       const matches = optionNames.filter((option) => option.startsWith(name));
-      if (matches.length === 1) name = matches[0];
+      if (matches.length === 1) name = matches[0]!;
     }
 
     let negated = false;

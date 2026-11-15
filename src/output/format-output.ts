@@ -27,7 +27,9 @@ export function colorizeOutput(json: ModuleInfos): void {
       return;
     }
 
-    json[colorizedKey] = json[key];
+    const moduleInfo = json[key];
+    if (!moduleInfo) return;
+    json[colorizedKey] = moduleInfo;
 
     delete json[key];
   });
@@ -46,7 +48,10 @@ function filterJson(
       .map((attribute) => attribute.trim());
 
     Object.keys(json).forEach((dependency) => {
-      filteredJson[dependency] = filterAttributes(attributes, json[dependency]);
+      const moduleInfo = json[dependency];
+      if (moduleInfo) {
+        filteredJson[dependency] = filterAttributes(attributes, moduleInfo);
+      }
     });
   }
 
@@ -68,24 +73,23 @@ export function getFormattedOutput(
   if (args.files) {
     const filesDirectory = args.files;
     Object.keys(jsonCopy).forEach((moduleName) => {
+      const moduleInfo = jsonCopy[moduleName];
+      if (!moduleInfo) return;
       const outPath = path.join(filesDirectory, `${moduleName}-LICENSE.txt`);
-      const originalLicenseFile = jsonCopy[moduleName].licenseFile;
+      const originalLicenseFile = moduleInfo.licenseFile;
 
       if (originalLicenseFile && fs.existsSync(originalLicenseFile)) {
         if (args.relativeLicensePath) {
           if (args.out) {
-            jsonCopy[moduleName].licenseFile = path.relative(
+            moduleInfo.licenseFile = path.relative(
               path.dirname(args.out),
               outPath,
             );
           } else {
-            jsonCopy[moduleName].licenseFile = path.relative(
-              process.cwd(),
-              outPath,
-            );
+            moduleInfo.licenseFile = path.relative(process.cwd(), outPath);
           }
         } else {
-          jsonCopy[moduleName].licenseFile = outPath;
+          moduleInfo.licenseFile = outPath;
         }
       }
     });

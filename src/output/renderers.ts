@@ -74,15 +74,18 @@ export const asMarkDown = (
 
   if (customFormat && Object.keys(customFormat).length > 0) {
     Object.keys(sorted).forEach((sortedItem) => {
-      text.push(`- **[${sortedItem}](${sorted[sortedItem].repository})**`);
+      const moduleInfo = sorted[sortedItem];
+      if (!moduleInfo) return;
+      text.push(`- **[${sortedItem}](${moduleInfo.repository})**`);
 
       Object.keys(customFormat).forEach((customItem) => {
-        text.push(`    - ${customItem}: ${sorted[sortedItem][customItem]}`);
+        text.push(`    - ${customItem}: ${moduleInfo[customItem]}`);
       });
     });
   } else {
     Object.keys(sorted).forEach((key) => {
       const module = sorted[key];
+      if (!module) return;
       text.push(`- [${key}](${module.repository}) - ${module.licenses}`);
     });
   }

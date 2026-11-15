@@ -20,8 +20,11 @@ interface Comparator {
 }
 
 const FULL_VERSION =
-  /^=?v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+  /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const NUMERIC_IDENTIFIER = /^(0|[1-9]\d*)$/;
+const VALID_PRERELEASE_IDENTIFIER =
+  /^(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)$/;
+const VALID_BUILD_IDENTIFIER = /^[0-9A-Za-z-]+$/;
 
 function parsePrerelease(value: string | undefined): string[] {
   if (!value) return [];
@@ -32,9 +35,9 @@ function parseVersion(value: string): SemVer | null {
   const match = FULL_VERSION.exec(value);
   if (!match) return null;
   return {
-    major: match[1],
-    minor: match[2],
-    patch: match[3],
+    major: match[1]!,
+    minor: match[2]!,
+    patch: match[3]!,
     prerelease: parsePrerelease(match[4]),
   };
 }
@@ -51,8 +54,8 @@ function comparePrerelease(left: string[], right: string[]): number {
 
   const length = Math.min(left.length, right.length);
   for (let index = 0; index < length; index += 1) {
-    const leftPart = left[index];
-    const rightPart = right[index];
+    const leftPart = left[index]!;
+    const rightPart = right[index]!;
     if (leftPart === rightPart) continue;
     const leftNumeric = NUMERIC_IDENTIFIER.test(leftPart);
     const rightNumeric = NUMERIC_IDENTIFIER.test(rightPart);
@@ -74,7 +77,19 @@ function compareVersions(left: SemVer, right: SemVer): number {
 
 function parsePartialVersion(source: string): PartialVersion {
   const value = source.replace(/^=?v?/, "");
-  const [withoutBuild] = value.split("+");
+  const buildParts = value.split("+");
+  if (
+    buildParts.length > 2 ||
+    (buildParts[1] !== undefined &&
+      !buildParts[1]
+        .split(".")
+        .every((identifier) => VALID_BUILD_IDENTIFIER.test(identifier)))
+  ) {
+    throw new Error(
+      `Invalid build metadata in semantic version range: ${source}`,
+    );
+  }
+  const withoutBuild = buildParts[0]!;
   const hyphenIndex = withoutBuild.indexOf("-");
   const core =
     hyphenIndex < 0 ? withoutBuild : withoutBuild.slice(0, hyphenIndex);
@@ -124,8 +139,17 @@ function parsePartialVersion(source: string): PartialVersion {
 
   const prerelease =
     prereleaseText === undefined ? [] : parsePrerelease(prereleaseText);
-  if (prereleaseText !== undefined && prerelease.length === 0) {
+  if (
+    prereleaseText !== undefined &&
+    (prerelease.length === 0 ||
+      prerelease.some(
+        (identifier) => !VALID_PRERELEASE_IDENTIFIER.test(identifier),
+      ))
+  ) {
     throw new Error(`Invalid prerelease in semantic version range: ${source}`);
+  }
+  if (buildParts[1] !== undefined && (wildcardSeen || parts.length !== 3)) {
+    throw new Error(`Build metadata requires a complete version: ${source}`);
   }
 
   return {
@@ -289,7 +313,7 @@ function expandHyphenRange(
 
 function expandComparatorSet(source: string): Comparator[] {
   const hyphen = /^(\S+)\s+-\s+(\S+)$/.exec(source.trim());
-  if (hyphen) return expandHyphenRange(hyphen[1], hyphen[2]);
+  if (hyphen) return expandHyphenRange(hyphen[1]!, hyphen[2]!);
 
   return tokenizeComparators(source).flatMap(({ operator, version }) =>
     expandPartial(parsePartialVersion(version), operator),
