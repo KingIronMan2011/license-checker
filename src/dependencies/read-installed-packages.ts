@@ -1,9 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import Arborist from "@npmcli/arborist";
-import type { ArboristEdge, ArboristNode } from "@npmcli/arborist";
-
 import type { DependencyPackage } from "../types.js";
 
 interface ReadOptions {
@@ -56,20 +53,54 @@ const getRootDependencySpecs = (
   ...getDependencySpecs(packageJson),
 });
 
-const isOptionalEdge = (edge: ArboristEdge): boolean =>
-  edge.type === "optional" || edge.type === "peerOptional";
+async function packageDirectories(directory: string): Promise<string[]> {
+  let entries: Array<{ name: string }>;
+  try {
+    entries = await fs.readdir(directory, {
+      withFileTypes: true,
+      encoding: "utf8",
+    });
+  } catch {
+    return [];
+  }
 
-const isPeerEdge = (edge: ArboristEdge): boolean =>
-  edge.type === "peer" || edge.type === "peerOptional";
+  const packages: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith("@")) {
+      packages.push(
+        ...(await packageDirectories(path.join(directory, entry.name))),
+      );
+      continue;
+    }
+    const packagePath = path.join(directory, entry.name);
+    try {
+      if ((await fs.stat(packagePath)).isDirectory())
+        packages.push(packagePath);
+    } catch {
+      // Broken symlinks are not installed packages.
+    }
+  }
+  return packages;
+}
 
-const getNodeForPackageJson = (node: ArboristNode): ArboristNode =>
-  node.target ?? node;
-
-const getNodeForDependencies = (node: ArboristNode): ArboristNode =>
-  node.target ?? node;
-
-const getRealPath = (node: ArboristNode): string =>
-  node.target?.realpath ?? node.realpath ?? node.path;
+async function resolveInstalledPackage(
+  fromPath: string,
+  dependencyName: string,
+): Promise<string | undefined> {
+  let directory = fromPath;
+  while (true) {
+    const candidate = path.join(directory, "node_modules", dependencyName);
+    try {
+      if ((await fs.stat(candidate)).isDirectory()) return candidate;
+    } catch {
+      // Keep searching through parent node_modules directories.
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) return undefined;
+    directory = parent;
+  }
+}
 
 const findDependency = (
   packageJson: DependencyPackage,
@@ -136,37 +167,36 @@ const readInstalledPackages = async (
   folder: string,
   options: ReadOptions = {},
 ): Promise<DependencyPackage> => {
-  const arb = new Arborist({ path: folder });
-  const root = await arb.loadActual();
-  const convertedNodes = new WeakMap<ArboristNode, DependencyPackage>();
+  const rootPath = path.resolve(folder);
+  const convertedNodes = new Map<string, DependencyPackage>();
 
   const convertNode = async (
-    node: ArboristNode,
+    installedPath: string,
     parent: DependencyPackage | null = null,
     depth = 0,
-    realName: string | null = null,
+    dependencyName?: string,
   ): Promise<DependencyPackage> => {
-    if (convertedNodes.has(node)) {
-      const converted = convertedNodes.get(node);
-      if (converted) return converted;
-    }
+    const existing = convertedNodes.get(installedPath);
+    if (existing) return existing;
 
-    const packageNode = getNodeForPackageJson(node);
+    const realPath = await fs
+      .realpath(installedPath)
+      .catch(() => installedPath);
     const packageJson = {
-      ...clonePackageJson(packageNode.package),
-      ...(await readPackageJsonFromDisk(packageNode.path)),
+      ...clonePackageJson(await readPackageJsonFromDisk(realPath)),
     };
-    const dependencySpecs =
-      node.root === node
-        ? getRootDependencySpecs(packageJson)
-        : getDependencySpecs(packageJson);
-    const compatibilityPackageJson: DependencyPackage = {
+    const isRoot = installedPath === rootPath;
+    const dependencySpecs = isRoot
+      ? getRootDependencySpecs(packageJson)
+      : getDependencySpecs(packageJson);
+    const node: DependencyPackage = {
       ...packageJson,
-      name: packageJson.name ?? node.name,
-      version: packageJson.version ?? node.version,
-      path: node.path,
-      realPath: getRealPath(node),
-      realName: realName ?? packageJson.name ?? node.name,
+      name: packageJson.name ?? dependencyName ?? path.basename(installedPath),
+      version: packageJson.version,
+      path: installedPath,
+      realPath,
+      realName:
+        dependencyName ?? packageJson.name ?? path.basename(installedPath),
       _dependencies: Object.fromEntries(
         Object.entries(dependencySpecs).map(([key, value]) => [
           key,
@@ -177,75 +207,57 @@ const readInstalledPackages = async (
       extraneous: true,
       depth,
     };
+    if (realPath !== installedPath) node.link = realPath;
+    if (node.realName && node.name !== node.realName) node.invalid = true;
+    if (parent && !node.link) node.parent = parent;
+    convertedNodes.set(installedPath, node);
 
-    if (
-      compatibilityPackageJson.realName &&
-      compatibilityPackageJson.name !== compatibilityPackageJson.realName
-    ) {
-      compatibilityPackageJson.invalid = true;
-    }
-
-    if (node.isLink) {
-      compatibilityPackageJson.link = getRealPath(node);
-    }
-
-    convertedNodes.set(node, compatibilityPackageJson);
-
-    if (parent && !compatibilityPackageJson.link) {
-      compatibilityPackageJson.parent = parent;
-    }
-
-    const dependencyNode = getNodeForDependencies(node);
-    const convertedDependencies = (compatibilityPackageJson.dependencies ??=
-      {});
-
-    for (const [childName, child] of dependencyNode.children) {
-      if (options.nopeer && child.peer) {
-        continue;
-      }
-
+    const convertedDependencies = (node.dependencies ??= {});
+    for (const childPath of await packageDirectories(
+      path.join(installedPath, "node_modules"),
+    )) {
+      const childName = path
+        .relative(path.join(installedPath, "node_modules"), childPath)
+        .split(path.sep)
+        .join("/");
       convertedDependencies[childName] = await convertNode(
-        child,
-        compatibilityPackageJson,
+        childPath,
+        node,
         depth + 1,
         childName,
       );
     }
 
-    for (const [dependencyName, edge] of dependencyNode.edgesOut) {
-      if (options.nopeer && isPeerEdge(edge)) {
-        continue;
-      }
-
-      if (!edge.to) {
-        if (!isOptionalEdge(edge)) {
-          convertedDependencies[dependencyName] = edge.spec;
-        }
-        continue;
-      }
-
-      const dependency = await convertNode(
-        edge.to,
-        compatibilityPackageJson,
-        depth + 1,
-        dependencyName,
-      );
-
-      if (!edge.valid) {
-        if (isPeerEdge(edge)) {
-          dependency.peerInvalid = true;
-        } else {
-          dependency.invalid = true;
-        }
-      }
-
-      convertedDependencies[dependencyName] = dependency;
+    const specs = { ...dependencySpecs };
+    if (options.dev && (isRoot || node.link)) {
+      Object.assign(specs, packageJson.devDependencies);
     }
-
-    return compatibilityPackageJson;
+    if (!options.nopeer) Object.assign(specs, packageJson.peerDependencies);
+    for (const [name, spec] of Object.entries(specs)) {
+      if (
+        options.nopeer &&
+        packageJson.peerDependencies?.[name] !== undefined
+      ) {
+        continue;
+      }
+      const installed = await resolveInstalledPackage(installedPath, name);
+      if (!installed) {
+        if (packageJson.optionalDependencies?.[name] === undefined) {
+          convertedDependencies[name] = String(spec);
+        }
+        continue;
+      }
+      convertedDependencies[name] = await convertNode(
+        installed,
+        node,
+        depth + 1,
+        name,
+      );
+    }
+    return node;
   };
 
-  const convertedRoot = await convertNode(root);
+  const convertedRoot = await convertNode(rootPath);
   convertedRoot.root = true;
   unmarkExtraneous(convertedRoot, options);
 
