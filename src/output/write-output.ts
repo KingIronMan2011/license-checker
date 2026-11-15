@@ -1,13 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export async function writeOutputToFile(outputFile, formattedOutput) {
+import type { ModuleInfos } from "../types.js";
+
+export async function writeOutputToFile(
+  outputFile: string,
+  formattedOutput: string,
+): Promise<void> {
   const dir = path.dirname(outputFile);
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(outputFile, formattedOutput, "utf-8");
 }
 
-export async function writeIndividualLicenseFilesToDir(outDir, resultJson) {
+export async function writeIndividualLicenseFilesToDir(
+  outDir: string,
+  resultJson: ModuleInfos,
+): Promise<void> {
   await fs.promises.mkdir(outDir, { recursive: true });
   for (const key of Object.keys(resultJson)) {
     const { licenseFile } = resultJson[key];

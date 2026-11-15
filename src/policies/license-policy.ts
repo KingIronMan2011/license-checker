@@ -1,19 +1,25 @@
 import spdxCorrect from "spdx-correct";
 import spdxSatisfies from "spdx-satisfies";
 
+import type { LicenseCheckOptions, LicenseValue } from "../types.js";
+
 const LICENSE_TITLE_UNKNOWN = "UNKNOWN";
 const bsdLicenses = ["0BSD", "BSD-2-Clause", "BSD-3-Clause", "BSD-4-Clause"];
 
-const transformBSD = (spdx) =>
+const transformBSD = (spdx: string): string =>
   spdx === "BSD" ? `(${bsdLicenses.join(" OR ")})` : spdx;
-const expandBSD = (spdx) => (spdx === "BSD" ? bsdLicenses : [spdx]);
-const invertResultOf = (fn) => (spdx) => !fn(spdx);
-const spdxIsValid = (spdx) => spdxCorrect(spdx) === spdx;
+const expandBSD = (spdx: string): string[] =>
+  spdx === "BSD" ? bsdLicenses : [spdx];
+const invertResultOf =
+  (fn: (spdx: string) => boolean) =>
+  (spdx: string): boolean =>
+    !fn(spdx);
+const spdxIsValid = (spdx: string): boolean => spdxCorrect(spdx) === spdx;
 
-const parsePolicyList = (value) => {
-  const licenses = [];
+const parsePolicyList = (value: string): string[] => {
+  const licenses: string[] = [];
 
-  value.split(";").forEach((license) => {
+  value.split(";").forEach((license: string) => {
     const trimmed = license.trim();
     if (trimmed.length > 0) {
       licenses.push(trimmed);
@@ -23,7 +29,9 @@ const parsePolicyList = (value) => {
   return licenses;
 };
 
-export function getLicensePolicy(options) {
+export function getLicensePolicy(
+  options: Pick<LicenseCheckOptions, "failOn" | "onlyAllow">,
+): { failOnLicenses: string[]; onlyAllowLicenses: string[] } {
   if (options.failOn) {
     return {
       failOnLicenses: parsePolicyList(options.failOn),
@@ -44,12 +52,23 @@ export function getLicensePolicy(options) {
   };
 }
 
-export function checkForFailOn(currentLicense, failOnLicenses) {
+export function checkForFailOn(
+  currentLicense: LicenseValue | LicenseValue[],
+  failOnLicenses: string[],
+): void {
   if (!Array.isArray(failOnLicenses) || failOnLicenses.length === 0) {
     return;
   }
 
-  if (failOnLicenses.includes(currentLicense)) {
+  const licenses = Array.isArray(currentLicense)
+    ? currentLicense
+    : [currentLicense];
+  if (
+    licenses.some(
+      (license) =>
+        typeof license === "string" && failOnLicenses.includes(license),
+    )
+  ) {
     throw new Error(
       `Found license defined by the --failOn flag: "${currentLicense}". Exiting.`,
     );
@@ -60,10 +79,10 @@ export function checkForFailOn(currentLicense, failOnLicenses) {
  * Check if the current license contains (eventually among others) at least one of the allowed licenses.
  */
 export function checkForOnlyAllow(
-  currentLicense,
-  packageName,
-  onlyAllowLicenses,
-) {
+  currentLicense: LicenseValue | LicenseValue[],
+  packageName: string,
+  onlyAllowLicenses: string[],
+): void {
   if (onlyAllowLicenses.length > 0) {
     let containsOneOfAllowedPackages = false;
 
@@ -71,7 +90,17 @@ export function checkForOnlyAllow(
       // "currentLicense" is a longer string that may contain several license names,
       // and we check if one of those is a license listed in the "onlyAllowLicenses"
       // licenses array:
-      if (currentLicense.includes(allowedLicense)) {
+      if (
+        (typeof currentLicense === "string" &&
+          currentLicense.includes(allowedLicense)) ||
+        (Array.isArray(currentLicense) &&
+          currentLicense.includes(allowedLicense)) ||
+        (typeof currentLicense === "object" &&
+          currentLicense !== null &&
+          !Array.isArray(currentLicense) &&
+          (currentLicense.type === allowedLicense ||
+            currentLicense.name === allowedLicense))
+      ) {
         containsOneOfAllowedPackages = true;
         break;
       }
@@ -90,14 +119,22 @@ export function throwIfLicensePolicyFails({
   failOnLicenses,
   onlyAllowLicenses,
   packageName,
-}) {
+}: {
+  currentLicense?: LicenseValue | LicenseValue[];
+  failOnLicenses: string[];
+  onlyAllowLicenses: string[];
+  packageName: string;
+}): void {
   if (currentLicense) {
     checkForFailOn(currentLicense, failOnLicenses);
     checkForOnlyAllow(currentLicense, packageName, onlyAllowLicenses);
   }
 }
 
-export function getLicenseMatch(licensesArr, compareLicenses) {
+export function getLicenseMatch(
+  licensesArr: LicenseValue[],
+  compareLicenses: string[],
+): { hasUnknownLicense: boolean; match: boolean } {
   const expandedCompareLicenses = compareLicenses.flatMap(expandBSD);
   const validSPDXLicenses = expandedCompareLicenses.filter(spdxIsValid);
   const invalidSPDXLicenses = expandedCompareLicenses
@@ -107,7 +144,11 @@ export function getLicenseMatch(licensesArr, compareLicenses) {
   let hasUnknownLicense = false;
   let match = false;
 
-  licensesArr.forEach((license) => {
+  licensesArr.forEach((licenseValue) => {
+    const license =
+      typeof licenseValue === "string"
+        ? licenseValue
+        : (licenseValue.type ?? licenseValue.name ?? "");
     if (license.indexOf(LICENSE_TITLE_UNKNOWN) >= 0) {
       // Necessary due to colorization and preserves the historic include/exclude behavior for unknown licenses.
       hasUnknownLicense = true;
@@ -117,11 +158,12 @@ export function getLicenseMatch(licensesArr, compareLicenses) {
         : license;
       const transformed = transformBSD(withoutTrailingAsterisk);
 
+      const correctedSpdx = spdxCorrect(transformed);
       if (
         invalidSPDXLicenses.indexOf(transformed) >= 0 ||
-        (spdxCorrect(transformed) &&
+        (correctedSpdx &&
           validSPDXLicenses.length > 0 &&
-          spdxSatisfies(spdxCorrect(transformed), validSPDXLicenses))
+          spdxSatisfies(correctedSpdx, validSPDXLicenses))
       ) {
         match = true;
       }

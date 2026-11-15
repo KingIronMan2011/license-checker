@@ -1,6 +1,10 @@
 import type { CustomFormat, ModuleInfos } from "../types.js";
 
-export const getCsvData = (sorted: ModuleInfos, customFormat?: CustomFormat, csvComponentPrefix?: string): string[] => {
+export const getCsvData = (
+  sorted: ModuleInfos,
+  customFormat?: CustomFormat,
+  csvComponentPrefix?: string,
+): string[] => {
   const csvDataArr: string[] = [];
 
   Object.entries(sorted).forEach(([key, module]) => {
@@ -35,7 +39,10 @@ export const getCsvData = (sorted: ModuleInfos, customFormat?: CustomFormat, csv
   return csvDataArr;
 };
 
-export const getCsvHeaders = (customFormat?: CustomFormat, csvComponentPrefix?: string): string => {
+export const getCsvHeaders = (
+  customFormat?: CustomFormat,
+  csvComponentPrefix?: string,
+): string => {
   const prefixName = '"component"';
   const entriesArr: string[] = [];
 
@@ -59,7 +66,11 @@ export const getCsvHeaders = (customFormat?: CustomFormat, csvComponentPrefix?: 
   return entriesArr.join(",");
 };
 
-export const asCSV = (sorted: ModuleInfos, customFormat?: CustomFormat, csvComponentPrefix?: string): string => {
+export const asCSV = (
+  sorted: ModuleInfos,
+  customFormat?: CustomFormat,
+  csvComponentPrefix?: string,
+): string => {
   const csvHeaders = getCsvHeaders(customFormat, csvComponentPrefix);
   const csvDataArr = getCsvData(sorted, customFormat, csvComponentPrefix);
 

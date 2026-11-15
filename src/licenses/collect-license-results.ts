@@ -243,7 +243,12 @@ const collectPackageLicenseInfo = ({
 
         if (
           !moduleInfo.licenses ||
-          moduleInfo.licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1
+          (Array.isArray(moduleInfo.licenses)
+            ? moduleInfo.licenses.some(
+                (license) => license === LICENSE_TITLE_UNKNOWN,
+              )
+            : typeof moduleInfo.licenses === "string" &&
+              moduleInfo.licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1)
           // TODO: Should we override a custom license?
           // || moduleInfo.licenses.indexOf('Custom:') === 0
         ) {

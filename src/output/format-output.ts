@@ -4,20 +4,21 @@ import path from "node:path";
 import chalk from "chalk";
 import cloneDeep from "lodash.clonedeep";
 
+import type { LicenseCheckOptions, ModuleInfos } from "../types.js";
 import { asCSV } from "./csv.js";
 import { filterAttributes } from "./filter-attributes.js";
 import { asMarkDown, asPlainVertical, asSummary, asTree } from "./renderers.js";
 
-export function shouldColorizeOutput(args) {
+export function shouldColorizeOutput(args: LicenseCheckOptions): boolean {
   return (
-    args.color &&
+    Boolean(args.color) &&
     !args.out &&
     !args.files &&
     !(args.csv || args.json || args.markdown || args.plainVertical)
   );
 }
 
-export function colorizeOutput(json) {
+export function colorizeOutput(json: ModuleInfos): void {
   Object.keys(json).forEach((key) => {
     const index = key.lastIndexOf("@");
     const colorizedKey =
@@ -34,7 +35,10 @@ export function colorizeOutput(json) {
   });
 }
 
-function filterJson(limitAttributes, json) {
+function filterJson(
+  limitAttributes: string | undefined,
+  json: ModuleInfos,
+): ModuleInfos {
   let filteredJson = json;
 
   if (limitAttributes) {
@@ -51,14 +55,17 @@ function filterJson(limitAttributes, json) {
   return filteredJson;
 }
 
-export function getFormattedOutput(modulesWithVersions, args) {
+export function getFormattedOutput(
+  modulesWithVersions: ModuleInfos,
+  args: LicenseCheckOptions,
+): string {
   let filteredJson = filterJson(args.limitAttributes, modulesWithVersions);
   const jsonCopy = cloneDeep(filteredJson);
-  filteredJson = null;
 
   if (args.files) {
+    const filesDirectory = args.files;
     Object.keys(jsonCopy).forEach((moduleName) => {
-      const outPath = path.join(args.files, `${moduleName}-LICENSE.txt`);
+      const outPath = path.join(filesDirectory, `${moduleName}-LICENSE.txt`);
       const originalLicenseFile = jsonCopy[moduleName].licenseFile;
 
       if (originalLicenseFile && fs.existsSync(originalLicenseFile)) {
@@ -97,7 +104,7 @@ export function getFormattedOutput(modulesWithVersions, args) {
     return asSummary(jsonCopy);
   }
 
-  if (args.plainVertical || args.angluarCli) {
+  if (args.plainVertical || args.angularCli) {
     return asPlainVertical(jsonCopy);
   }
 

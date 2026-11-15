@@ -1,19 +1,22 @@
 import fs from "node:fs";
 
 import treeify from "treeify";
+import type { TreeObject } from "treeify";
 
 import { detectLicenseTitle } from "../licenses/detect-license-title.js";
+import type { CustomFormat, ModuleInfos } from "../types.js";
 
-export const asTree = (sorted) => treeify.asTree(sorted, true);
+export const asTree = (sorted: ModuleInfos): string =>
+  treeify.asTree(sorted as unknown as TreeObject, true, false);
 
-export const asSummary = (sorted) => {
-  const licenseCountMap = new global.Map();
-  const licenseCountArray = [];
-  const sortedLicenseCountObj = {};
+export const asSummary = (sorted: ModuleInfos): string => {
+  const licenseCountMap = new global.Map<string, number>();
+  const licenseCountArray: Array<{ license: string; count: number }> = [];
+  const sortedLicenseCountObj: Record<string, string> = {};
 
   Object.values(sorted).forEach(({ licenses }) => {
-    if (licenses) {
-      licenseCountMap.set(licenses, licenseCountMap.get(licenses) + 1 || 1);
+    if (typeof licenses === "string") {
+      licenseCountMap.set(licenses, (licenseCountMap.get(licenses) ?? 0) + 1);
     }
   });
 
@@ -24,10 +27,10 @@ export const asSummary = (sorted) => {
   licenseCountArray
     .toSorted((a, b) => b.count - a.count)
     .forEach(({ license, count }) => {
-      sortedLicenseCountObj[license] = count;
+      sortedLicenseCountObj[license] = String(count);
     });
 
-  return treeify.asTree(sortedLicenseCountObj, true);
+  return treeify.asTree(sortedLicenseCountObj, true, false);
 };
 
 /**
@@ -37,8 +40,11 @@ export const asSummary = (sorted) => {
  * @param  {object} [customFormat] The custom format with information about the needed keys.
  * @return {string}                The returning plain text.
  */
-export const asMarkDown = (sorted, customFormat) => {
-  const text = [];
+export const asMarkDown = (
+  sorted: ModuleInfos,
+  customFormat?: CustomFormat,
+): string => {
+  const text: string[] = [];
 
   if (customFormat && Object.keys(customFormat).length > 0) {
     Object.keys(sorted).forEach((sortedItem) => {
@@ -67,7 +73,7 @@ const getModuleNameForLicenseTextHeader = (moduleName = "") => {
 /**
  * Output data in plain vertical format like Angular CLI does: https://angular.io/3rdpartylicenses.txt
  */
-export const asPlainVertical = (sorted) =>
+export const asPlainVertical = (sorted: ModuleInfos): string =>
   Object.entries(sorted)
     .map(([moduleName, moduleData]) => {
       let licenseText = getModuleNameForLicenseTextHeader(moduleName);
@@ -87,6 +93,8 @@ export const asPlainVertical = (sorted) =>
           }
         });
       } else if (
+        !Array.isArray(moduleData.licenses) &&
+        moduleData.licenses !== undefined &&
         typeof moduleData.licenses === "object" &&
         (moduleData.licenses.type || moduleData.licenses.name)
       ) {
@@ -99,27 +107,7 @@ export const asPlainVertical = (sorted) =>
 
       licenseText += "\n";
 
-      if (
-        Array.isArray(moduleData.licenseFile) &&
-        moduleData.licenseFile.length > 0
-      ) {
-        // biome-ignore lint/suspicious/useIterableCallbackReturn: TODO we'll have to check if "moduleData.licenseFile" can contain something that might not be handled inside the map callback
-        licenseText += moduleData.licenseFile.map((moduleLicense) => {
-          if (typeof moduleLicense === "object") {
-            return moduleLicense.type || moduleLicense.name;
-          }
-
-          if (typeof moduleLicense === "string") {
-            return moduleLicense;
-          }
-        });
-      } else if (
-        typeof moduleData.licenseFile === "object" &&
-        (moduleData.licenseFile.type || moduleData.licenseFile.name)
-      ) {
-        licenseText +=
-          moduleData.licenseFile.type || moduleData.licenseFile.name;
-      } else if (typeof moduleData.licenseFile === "string") {
+      if (typeof moduleData.licenseFile === "string") {
         licenseText += fs.readFileSync(moduleData.licenseFile, {
           encoding: "utf8",
         });

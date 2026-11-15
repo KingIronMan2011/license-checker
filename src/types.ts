@@ -108,6 +108,8 @@ export interface Clarification {
   licenseStart?: string;
   licenseEnd?: string;
   copyright?: string;
+  publisher?: string;
+  email?: string;
   [key: string]: unknown;
 }
 
