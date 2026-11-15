@@ -28,17 +28,15 @@ const CONTAINS_LICENSE_TERM = /(license|licence|lizenz)/gi;
 const IS_FILE_REFERENCE = /SEE LICENSE IN (.*)/i;
 const UNLICENSED = /UNLICENSED/i;
 
-export const detectLicenseTitle = (str = "undefined") => {
+export const detectLicenseTitle = (str = "undefined"): string | null => {
   if (typeof str !== "string") {
     throw new Error(
       `Wrong type for parameter "str" ("${str}"): Must be of type string`,
-      "lib/licenses/detect-license-title.js",
-      24,
     );
   }
 
-  let match;
-  let version;
+  let match: RegExpExecArray | null;
+  let version: string;
 
   try {
     // Simply check if the string is a valid SPDX expression:
@@ -106,7 +104,8 @@ export const detectLicenseTitle = (str = "undefined") => {
 
   if (APACHE_VERSION.test(str)) {
     match = APACHE_VERSION.exec(str);
-    version = match[1];
+    if (!match) return null;
+    version = match[1] ?? "";
 
     if (version.length === 1) {
       version = `${version}.0`;
@@ -121,7 +120,8 @@ export const detectLicenseTitle = (str = "undefined") => {
 
   if (APACHE_VERSION_SHORT.test(str)) {
     match = APACHE_VERSION_SHORT.exec(str);
-    version = match[1];
+    if (!match) return null;
+    version = match[1] ?? "";
 
     if (version.length === 1) {
       version = `${version}.0`;
@@ -136,7 +136,8 @@ export const detectLicenseTitle = (str = "undefined") => {
 
   if (GPL.test(str)) {
     match = GPL.exec(str);
-    version = match[1];
+    if (!match) return null;
+    version = match[1] ?? "";
 
     if (version.length === 1) {
       version = `${version}.0`;
@@ -147,7 +148,8 @@ export const detectLicenseTitle = (str = "undefined") => {
 
   if (LGPL.test(str)) {
     match = LGPL.exec(str);
-    version = match[1];
+    if (!match) return null;
+    version = match[1] ?? "";
 
     if (version.length === 1) {
       version = `${version}.0`;

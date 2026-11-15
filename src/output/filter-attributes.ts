@@ -1,4 +1,6 @@
-export const filterAttributes = (attributes, json) => {
+import type { ModuleInfo } from "../types.js";
+
+export const filterAttributes = (attributes: string[], json: ModuleInfo): ModuleInfo => {
   let filteredJson = json;
 
   if (attributes) {

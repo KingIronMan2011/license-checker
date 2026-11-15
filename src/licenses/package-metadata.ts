@@ -2,14 +2,23 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { firstDefined } from "../shared/first-defined.js";
+import type { Clarification, DependencyPackage } from "../types.js";
 
-export function getRepositoryUrl({ clarificationRepository, jsonRepository }) {
+export function getRepositoryUrl({
+  clarificationRepository,
+  jsonRepository,
+}: {
+  clarificationRepository?: string;
+  jsonRepository?: string | { url?: string };
+}): string | undefined {
   if (clarificationRepository) {
     return clarificationRepository;
   }
 
-  if (typeof jsonRepository?.url === "string") {
-    return jsonRepository.url
+  const repositoryUrl =
+    typeof jsonRepository === "object" ? jsonRepository?.url : undefined;
+  if (typeof repositoryUrl === "string") {
+    return repositoryUrl
       .replace("git+ssh://git@", "git://")
       .replace("git+https://github.com", "https://github.com")
       .replace("git://github.com", "https://github.com")
@@ -18,7 +27,13 @@ export function getRepositoryUrl({ clarificationRepository, jsonRepository }) {
   }
 }
 
-export function getAuthorDetails({ clarification, author }) {
+export function getAuthorDetails({
+  clarification,
+  author,
+}: {
+  clarification?: Clarification;
+  author?: { name?: string; email?: string; url?: string };
+}): { publisher?: string; email?: string; url?: string } {
   const publisher = firstDefined(clarification?.publisher, author?.name);
   const email = firstDefined(clarification?.email, author?.email);
   const url = firstDefined(clarification?.url, author?.url);
@@ -28,9 +43,9 @@ export function getAuthorDetails({ clarification, author }) {
 
 // Eventually store the contents of the module's README.md in currentExtendedPackageJson.readme:
 export const storeReadmeInPackageJsonIfExists = (
-  modulePath,
-  currentExtendedPackageJson,
-) => {
+  modulePath: string | undefined,
+  currentExtendedPackageJson: DependencyPackage,
+): void => {
   if (
     typeof modulePath !== "string" ||
     typeof currentExtendedPackageJson !== "object" ||

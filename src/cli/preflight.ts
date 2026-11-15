@@ -1,9 +1,16 @@
 import packageJson from "../../package.json" with { type: "json" };
+import type { NormalizedArguments } from "../types.js";
 import { usageMessage } from "./usage.js";
 
 const version = packageJson.version;
 
-export const exitProcessOrWarnIfNeeded = ({ unknownArgs, parsedArgs }) => {
+export const exitProcessOrWarnIfNeeded = ({
+  unknownArgs,
+  parsedArgs,
+}: {
+  unknownArgs: string[];
+  parsedArgs: NormalizedArguments & { help?: boolean; version?: boolean };
+}): void => {
   if (unknownArgs.length) {
     console.error(`license-checker-rseidelsohn@${version}`, "\n");
     console.error(

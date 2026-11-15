@@ -28,6 +28,6 @@ try {
     console.log(formattedOutput);
   }
 } catch (error) {
-  console.error(error.message ?? error);
+  console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 }

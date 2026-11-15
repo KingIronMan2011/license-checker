@@ -22,7 +22,7 @@ export const asSummary = (sorted) => {
   });
 
   licenseCountArray
-    .sort((a, b) => b.count - a.count)
+    .toSorted((a, b) => b.count - a.count)
     .forEach(({ license, count }) => {
       sortedLicenseCountObj[license] = count;
     });

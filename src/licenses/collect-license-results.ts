@@ -6,6 +6,16 @@ import semver from "semver";
 
 import { walkDependencyTree } from "../dependencies/walk-dependency-tree.js";
 import { firstDefined } from "../shared/first-defined.js";
+import type {
+  Clarification,
+  Clarifications,
+  DependencyPackage,
+  LicenseCheckOptions,
+  LicenseCollectionOptions,
+  LicenseValue,
+  ModuleInfo,
+  ModuleInfos,
+} from "../types.js";
 import { getCopyrightLines } from "./copyright.js";
 import { detectLicenseTitle } from "./detect-license-title.js";
 import { findLicenseFiles } from "./find-license-files.js";
@@ -16,37 +26,58 @@ import {
 } from "./package-metadata.js";
 
 const LICENSE_TITLE_UNKNOWN = "UNKNOWN";
-const INITIAL_MODULE_INFO = { licenses: LICENSE_TITLE_UNKNOWN };
+const INITIAL_MODULE_INFO: ModuleInfo = { licenses: LICENSE_TITLE_UNKNOWN };
 
-const getPackageNameAndVersion = (packageJson) =>
+const getPackageNameAndVersion = (packageJson: DependencyPackage): string =>
   `${packageJson.name}@${packageJson.version}`;
 
-const findClarification = (clarifications, packageJson) =>
-  clarifications[packageJson.name]?.find(
+const findClarification = (
+  clarifications: Clarifications,
+  packageJson: DependencyPackage,
+): Clarification | undefined => {
+  const packageName = packageJson.name;
+  const version = packageJson.version;
+  if (!packageName || !version) return undefined;
+  return clarifications[packageName]?.find(
     (clarification) =>
-      packageJson.version === clarification.semverRange ||
-      semver.satisfies(packageJson.version, clarification.semverRange),
+      version === clarification.semverRange ||
+      semver.satisfies(version, clarification.semverRange),
   );
+};
 
-const shouldSkipPackage = ({ packageJson, data, options }) =>
-  data[getPackageNameAndVersion(packageJson)] ||
-  (options.production && packageJson.extraneous) ||
-  (options.development && !packageJson.extraneous && !packageJson.root);
+const shouldSkipPackage = ({
+  packageJson,
+  data,
+  options,
+}: {
+  packageJson: DependencyPackage;
+  data: ModuleInfos;
+  options: LicenseCollectionOptions;
+}): boolean =>
+  Boolean(
+    data[getPackageNameAndVersion(packageJson)] ||
+    (options.production && packageJson.extraneous) ||
+    (options.development && !packageJson.extraneous && !packageJson.root),
+  );
 
 const collectPackageLicenseInfo = ({
   packageJson: currentExtendedPackageJson,
   data,
   options,
-}) => {
+}: {
+  packageJson: DependencyPackage;
+  data: ModuleInfos;
+  options: LicenseCollectionOptions;
+}): boolean => {
   const moduleInfo = { ...INITIAL_MODULE_INFO };
   const currentPackageNameAndVersion = getPackageNameAndVersion(
     currentExtendedPackageJson,
   );
 
-  let licenseFilesInCurrentModuleDirectory = [];
-  let licenseData;
-  let licenseFile;
-  let noticeFiles = [];
+  let licenseFilesInCurrentModuleDirectory: string[] = [];
+  let licenseData: LicenseValue | LicenseValue[] | string | undefined;
+  let licenseFile: string | undefined;
+  let noticeFiles: string[] = [];
   const clarification = findClarification(
     options.clarifications,
     currentExtendedPackageJson,
@@ -92,7 +123,9 @@ const collectPackageLicenseInfo = ({
     //       but I can't find any documentation on it.
     const url = firstDefined(
       clarification?.url,
-      currentExtendedPackageJson?.url?.web,
+      typeof currentExtendedPackageJson?.url === "object"
+        ? currentExtendedPackageJson.url.web
+        : undefined,
     );
     if (url) {
       moduleInfo.url = url;
@@ -136,43 +169,45 @@ const collectPackageLicenseInfo = ({
   storeReadmeInPackageJsonIfExists(modulePath, currentExtendedPackageJson);
 
   // Try to get the license information from the clarification file or from the package.json file:
-  licenseData = firstDefined(
-    clarification?.licenses,
-    currentExtendedPackageJson.license,
-    currentExtendedPackageJson.licenses,
-  );
+  licenseData =
+    clarification?.licenses ??
+    currentExtendedPackageJson.license ??
+    currentExtendedPackageJson.licenses;
 
   if (licenseData) {
     // License information has been collected from either the clarification file or from the package.json file
     if (Array.isArray(licenseData) && licenseData.length > 0) {
       // biome-ignore lint/suspicious/useIterableCallbackReturn: TODO we'll have to check if "licenseData" can contain something that might not be handled inside the map callback
-      moduleInfo.licenses = licenseData.map((moduleLicense) => {
-        const moduleLicenseTypeOrName = firstDefined(
-          moduleLicense.type,
-          moduleLicense.name,
-        );
+      moduleInfo.licenses = licenseData
+        .map((moduleLicense) => {
+          const moduleLicenseTypeOrName =
+            typeof moduleLicense === "string"
+              ? moduleLicense
+              : firstDefined(moduleLicense.type, moduleLicense.name);
 
-        if (typeof moduleLicenseTypeOrName === "string") {
-          return moduleLicenseTypeOrName;
-        }
+          if (typeof moduleLicenseTypeOrName === "string") {
+            return moduleLicenseTypeOrName;
+          }
 
-        if (typeof moduleLicense === "string") {
-          return moduleLicense;
-        }
-      });
-    } else if (
-      typeof firstDefined(licenseData.type, licenseData.name) === "string"
-    ) {
-      moduleInfo.licenses = detectLicenseTitle(
+          if (typeof moduleLicense === "string") {
+            return moduleLicense;
+          }
+        })
+        .filter((license): license is string => typeof license === "string");
+    } else if (!Array.isArray(licenseData) && typeof licenseData === "object") {
+      const licenseTitle = detectLicenseTitle(
         firstDefined(licenseData.type, licenseData.name),
       );
+      if (licenseTitle) moduleInfo.licenses = licenseTitle;
     } else if (typeof licenseData === "string") {
-      moduleInfo.licenses = detectLicenseTitle(licenseData);
+      const licenseTitle = detectLicenseTitle(licenseData);
+      if (licenseTitle) moduleInfo.licenses = licenseTitle;
     }
   } else if (detectLicenseTitle(currentExtendedPackageJson.readme)) {
     // Try to get the license information from the README file if neither the clarification file nor the package.json
     // file contained any license information:
-    moduleInfo.licenses = detectLicenseTitle(currentExtendedPackageJson.readme);
+    const licenseTitle = detectLicenseTitle(currentExtendedPackageJson.readme);
+    if (licenseTitle) moduleInfo.licenses = licenseTitle;
   }
 
   if (Array.isArray(moduleInfo.licenses)) {
@@ -200,6 +235,7 @@ const collectPackageLicenseInfo = ({
 
   licenseFilesInCurrentModuleDirectory.forEach(
     function findBetterLicenseData(filename, index) {
+      if (!modulePath) return;
       licenseFile = path.join(modulePath, filename);
       // Checking that the file is in fact a normal file and not a directory for example.
       if (fs.lstatSync(licenseFile).isFile()) {
@@ -216,7 +252,8 @@ const collectPackageLicenseInfo = ({
             encoding: "utf8",
           });
 
-          moduleInfo.licenses = detectLicenseTitle(currentLicenceFilesContent);
+          const licenseTitle = detectLicenseTitle(currentLicenceFilesContent);
+          if (licenseTitle) moduleInfo.licenses = licenseTitle;
         }
 
         if (index === 0) {
@@ -329,7 +366,9 @@ const collectPackageLicenseInfo = ({
 
   // TODO: How do clarifications interact with notice files?
   noticeFiles.forEach((filename) => {
-    const file = path.join(currentExtendedPackageJson.path, filename);
+    const packagePath = currentExtendedPackageJson.path;
+    if (!packagePath) return;
+    const file = path.join(packagePath, filename);
     if (fs.lstatSync(file).isFile()) {
       moduleInfo.noticeFile = options.basePath
         ? path.relative(options.basePath, file)
@@ -347,12 +386,15 @@ const collectPackageLicenseInfo = ({
         mustInclude(customFormatKey) &&
         moduleInfo[customFormatKey] === undefined
       ) {
-        moduleInfo[customFormatKey] = firstDefined(
+        const value = firstDefined(
           clarification?.[customFormatKey],
           typeof currentExtendedPackageJson[customFormatKey] === "string"
             ? currentExtendedPackageJson[customFormatKey]
-            : options.customFormat[customFormatKey],
+            : options.customFormat?.[customFormatKey],
         );
+        if (typeof value === "string" || typeof value === "boolean") {
+          moduleInfo[customFormatKey] = value;
+        }
       }
     });
   }
@@ -384,10 +426,20 @@ export const collectLicenseResults = ({
   production,
   rootPackage,
   unknown,
-}) => {
-  const data = {};
-  const options = {
-    args,
+}: {
+  args?: LicenseCheckOptions;
+  basePath?: string | null;
+  clarifications?: Clarifications;
+  customFormat?: LicenseCheckOptions["customFormat"];
+  development?: boolean;
+  direct?: number | boolean | string | null;
+  production?: boolean;
+  rootPackage: DependencyPackage;
+  unknown?: boolean;
+}): ModuleInfos => {
+  const data: ModuleInfos = {};
+  const options: LicenseCollectionOptions = {
+    args: args ? { csv: args.csv } : undefined,
     basePath,
     clarifications,
     customFormat,

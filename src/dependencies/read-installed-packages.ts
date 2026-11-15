@@ -1,10 +1,22 @@
 import Arborist from "@npmcli/arborist";
+import type { ArboristEdge, ArboristNode } from "@npmcli/arborist";
 import PackageJson from "@npmcli/package-json";
 
-const clonePackageJson = (packageJson) =>
-  JSON.parse(JSON.stringify(packageJson ?? {}));
+import type { DependencyPackage } from "../types.js";
 
-const readPackageJsonFromDisk = async (packagePath) => {
+interface ReadOptions {
+  depth?: number | boolean;
+  dev?: boolean;
+  nopeer?: boolean;
+  log?: (...args: unknown[]) => void;
+}
+
+const clonePackageJson = (packageJson: unknown): DependencyPackage =>
+  JSON.parse(JSON.stringify(packageJson ?? {})) as DependencyPackage;
+
+const readPackageJsonFromDisk = async (
+  packagePath: string,
+): Promise<DependencyPackage> => {
   try {
     const packageJson = await PackageJson.prepare(packagePath);
     return clonePackageJson(packageJson.content);
@@ -13,35 +25,44 @@ const readPackageJsonFromDisk = async (packagePath) => {
   }
 };
 
-const getDependencySpecs = (packageJson) => ({
+const getDependencySpecs = (
+  packageJson: DependencyPackage,
+): Record<string, string | DependencyPackage> => ({
   ...packageJson.dependencies,
   ...packageJson.optionalDependencies,
 });
 
-const getRootDependencySpecs = (packageJson) => ({
+const getRootDependencySpecs = (
+  packageJson: DependencyPackage,
+): Record<string, string | DependencyPackage> => ({
   ...getDependencySpecs(packageJson),
 });
 
-const isOptionalEdge = (edge) =>
+const isOptionalEdge = (edge: ArboristEdge): boolean =>
   edge.type === "optional" || edge.type === "peerOptional";
 
-const isPeerEdge = (edge) =>
+const isPeerEdge = (edge: ArboristEdge): boolean =>
   edge.type === "peer" || edge.type === "peerOptional";
 
-const getNodeForPackageJson = (node) => node.target ?? node;
+const getNodeForPackageJson = (node: ArboristNode): ArboristNode =>
+  node.target ?? node;
 
-const getNodeForDependencies = (node) => node.target ?? node;
+const getNodeForDependencies = (node: ArboristNode): ArboristNode =>
+  node.target ?? node;
 
-const getRealPath = (node) =>
+const getRealPath = (node: ArboristNode): string =>
   node.target?.realpath ?? node.realpath ?? node.path;
 
-const findDependency = (packageJson, dependencyName) => {
-  let currentPackageJson = packageJson;
+const findDependency = (
+  packageJson: DependencyPackage,
+  dependencyName: string,
+): DependencyPackage | undefined => {
+  let currentPackageJson: DependencyPackage | null = packageJson;
 
   while (currentPackageJson) {
     const dependency = currentPackageJson.dependencies?.[dependencyName];
 
-    if (typeof dependency === "object") {
+    if (dependency && typeof dependency === "object") {
       return dependency;
     }
 
@@ -51,14 +72,18 @@ const findDependency = (packageJson, dependencyName) => {
 
     currentPackageJson = currentPackageJson.link
       ? null
-      : currentPackageJson.parent;
+      : (currentPackageJson.parent ?? null);
   }
 };
 
-const unmarkExtraneous = (packageJson, options) => {
+const unmarkExtraneous = (
+  packageJson: DependencyPackage,
+  options: ReadOptions,
+): void => {
   packageJson.extraneous = false;
 
-  const dependencies = packageJson._dependencies ?? {};
+  const dependencies: Record<string, string> =
+    packageJson["_dependencies"] ?? {};
 
   if (
     options.dev &&
@@ -66,15 +91,17 @@ const unmarkExtraneous = (packageJson, options) => {
     (packageJson.root || packageJson.link)
   ) {
     Object.keys(packageJson.devDependencies).forEach((dependencyName) => {
-      dependencies[dependencyName] =
-        packageJson.devDependencies[dependencyName];
+      dependencies[dependencyName] = String(
+        packageJson.devDependencies?.[dependencyName],
+      );
     });
   }
 
   if (!options.nopeer && packageJson.peerDependencies) {
     Object.keys(packageJson.peerDependencies).forEach((dependencyName) => {
-      dependencies[dependencyName] =
-        packageJson.peerDependencies[dependencyName];
+      dependencies[dependencyName] = String(
+        packageJson.peerDependencies?.[dependencyName],
+      );
     });
   }
 
@@ -87,19 +114,23 @@ const unmarkExtraneous = (packageJson, options) => {
   });
 };
 
-const readInstalledPackages = async (folder, options = {}) => {
+const readInstalledPackages = async (
+  folder: string,
+  options: ReadOptions = {},
+): Promise<DependencyPackage> => {
   const arb = new Arborist({ path: folder });
   const root = await arb.loadActual();
-  const convertedNodes = new WeakMap();
+  const convertedNodes = new WeakMap<ArboristNode, DependencyPackage>();
 
   const convertNode = async (
-    node,
-    parent = null,
+    node: ArboristNode,
+    parent: DependencyPackage | null = null,
     depth = 0,
-    realName = null,
-  ) => {
+    realName: string | null = null,
+  ): Promise<DependencyPackage> => {
     if (convertedNodes.has(node)) {
-      return convertedNodes.get(node);
+      const converted = convertedNodes.get(node);
+      if (converted) return converted;
     }
 
     const packageNode = getNodeForPackageJson(node);
@@ -111,14 +142,19 @@ const readInstalledPackages = async (folder, options = {}) => {
       node.root === node
         ? getRootDependencySpecs(packageJson)
         : getDependencySpecs(packageJson);
-    const compatibilityPackageJson = {
+    const compatibilityPackageJson: DependencyPackage = {
       ...packageJson,
       name: packageJson.name ?? node.name,
       version: packageJson.version ?? node.version,
       path: node.path,
       realPath: getRealPath(node),
       realName: realName ?? packageJson.name ?? node.name,
-      _dependencies: dependencySpecs,
+      _dependencies: Object.fromEntries(
+        Object.entries(dependencySpecs).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
+      ),
       dependencies: {},
       extraneous: true,
       depth,
@@ -142,13 +178,15 @@ const readInstalledPackages = async (folder, options = {}) => {
     }
 
     const dependencyNode = getNodeForDependencies(node);
+    const convertedDependencies = (compatibilityPackageJson.dependencies ??=
+      {});
 
     for (const [childName, child] of dependencyNode.children) {
       if (options.nopeer && child.peer) {
         continue;
       }
 
-      compatibilityPackageJson.dependencies[childName] = await convertNode(
+      convertedDependencies[childName] = await convertNode(
         child,
         compatibilityPackageJson,
         depth + 1,
@@ -163,7 +201,7 @@ const readInstalledPackages = async (folder, options = {}) => {
 
       if (!edge.to) {
         if (!isOptionalEdge(edge)) {
-          compatibilityPackageJson.dependencies[dependencyName] = edge.spec;
+          convertedDependencies[dependencyName] = edge.spec;
         }
         continue;
       }
@@ -183,7 +221,7 @@ const readInstalledPackages = async (folder, options = {}) => {
         }
       }
 
-      compatibilityPackageJson.dependencies[dependencyName] = dependency;
+      convertedDependencies[dependencyName] = dependency;
     }
 
     return compatibilityPackageJson;

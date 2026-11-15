@@ -11,8 +11,8 @@ const BASENAMES_PRECEDENCE = [
 ];
 
 // Find and list license files in the precedence order
-export const findLicenseFiles = (dirFiles) => {
-  const files = [];
+export const findLicenseFiles = (dirFiles: string[]): string[] => {
+  const files: string[] = [];
 
   BASENAMES_PRECEDENCE.forEach((basenamePattern) => {
     dirFiles.some((filename) => {
@@ -31,5 +31,5 @@ export const findLicenseFiles = (dirFiles) => {
   return files;
 };
 
-const getBaseFileName = (filename) =>
+const getBaseFileName = (filename: string): string =>
   path.basename(filename, path.extname(filename)).toUpperCase();

@@ -1,15 +1,10 @@
 import fs from "node:fs";
 
-export const readJson = (jsonPath) => {
+export const readJson = <T = Record<string, unknown>>(jsonPath: string): T => {
   if (typeof jsonPath !== "string") {
-    return new Error("The path was not specified for the JSON file to parse.");
+    throw new Error("The path was not specified for the JSON file to parse.");
   }
 
-  try {
-    const jsonFileContents = fs.readFileSync(jsonPath, { encoding: "utf8" });
-
-    return JSON.parse(jsonFileContents);
-  } catch (err) {
-    return err;
-  }
+  const jsonFileContents = fs.readFileSync(jsonPath, { encoding: "utf8" });
+  return JSON.parse(jsonFileContents) as T;
 };

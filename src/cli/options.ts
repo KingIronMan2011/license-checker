@@ -3,6 +3,8 @@ import path from "node:path";
 import { supportsColor } from "chalk";
 import nopt from "nopt";
 
+import type { NormalizedArguments, ParsedArguments } from "../types.js";
+
 // For the format requirements of "knownOptions", see the documentation for nopt: https://www.npmjs.com/package/nopt
 export const knownOptions = {
   angularCli: Boolean,
@@ -84,7 +86,7 @@ export const shortHands = {
  * @property {boolean=} version Show version output.
  */
 
-function normalizeArgv(args) {
+function normalizeArgv(args: string[] = process.argv) {
   if (Array.isArray(args) && (args.length === 0 || args[0]?.startsWith("-"))) {
     return [process.execPath, "license-checker-rseidelsohn", ...args];
   }
@@ -98,7 +100,7 @@ function normalizeArgv(args) {
  * @param {string[]} [args] Command-line arguments to parse.
  * @returns {ParsedArguments} Parsed command-line arguments.
  */
-function parseArguments(args) {
+function parseArguments(args: string[] = process.argv): ParsedArguments {
   // nopt is an option parser that returns an object looking like this, if you pass the params '--one --two here there -- --three --four':
   //
   // parsedArguments {
@@ -110,7 +112,11 @@ function parseArguments(args) {
   //     original: [ '--one', '--two', 'here', 'there', '--', '--three', '--four' ]
   //   }
   // }
-  const parsedArguments = nopt(knownOptions, shortHands, normalizeArgv(args));
+  const parsedArguments = nopt(
+    knownOptions,
+    shortHands,
+    normalizeArgv(args),
+  ) as ParsedArguments & { argv?: unknown };
 
   delete parsedArguments.argv;
 
@@ -131,7 +137,14 @@ function parseArguments(args) {
  * @param {boolean | number | string | undefined} value
  * @returns number
  */
-function toDepthNumber(value = Number.POSITIVE_INFINITY) {
+function toDepthNumber(
+  value:
+    | boolean
+    | number
+    | string
+    | null
+    | undefined = Number.POSITIVE_INFINITY,
+): number {
   switch (typeof value) {
     case "string":
       return depthStringToNumber(value);
@@ -144,15 +157,16 @@ function toDepthNumber(value = Number.POSITIVE_INFINITY) {
   }
 }
 
-function depthStringToNumber(depthString) {
-  let numberValue = depthString.toLowerCase();
+function depthStringToNumber(depthString: string): number {
+  const lowered = depthString.toLowerCase();
+  let numberValue: number;
 
-  if (numberValue === "true") {
+  if (lowered === "true") {
     numberValue = Number.POSITIVE_INFINITY;
-  } else if (numberValue === "false") {
+  } else if (lowered === "false") {
     numberValue = 0;
   } else {
-    numberValue = Number(numberValue, 10);
+    numberValue = Number.parseInt(lowered, 10);
 
     if (Number.isNaN(numberValue)) {
       numberValue = Number.POSITIVE_INFINITY;
@@ -181,7 +195,9 @@ function depthStringToNumber(depthString) {
  * @param {ParsedArguments} parsedArguments Parsed command-line arguments.
  * @returns {ArgumentsWithDefaults} Parsed command-line arguments with defaults applied.
  */
-export function setDefaultArguments(parsedArguments = {}) {
+export function setDefaultArguments(
+  parsedArguments: ParsedArguments = {},
+): NormalizedArguments {
   const argumentsWithDefaults = { ...parsedArguments };
   if (
     argumentsWithDefaults.color === null ||
@@ -212,9 +228,11 @@ export function setDefaultArguments(parsedArguments = {}) {
     argumentsWithDefaults.depth ?? argumentsWithDefaults.direct,
   );
 
-  return argumentsWithDefaults;
+  return argumentsWithDefaults as NormalizedArguments;
 }
 
-export function getNormalizedArguments(args) {
+export function getNormalizedArguments(
+  args: string[] = process.argv,
+): NormalizedArguments {
   return setDefaultArguments(parseArguments(args));
 }

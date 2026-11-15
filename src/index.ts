@@ -28,6 +28,7 @@ import {
   getOptionArray,
   includePackages,
 } from "./policies/package-filters.js";
+import type { LicenseCheckOptions, ModuleInfos } from "./types.js";
 
 const LICENSE_TITLE_UNKNOWN = "UNKNOWN";
 const LICENSE_TITLE_UNLICENSED = "UNLICENSED";
@@ -123,7 +124,9 @@ debugLog.log = console.log.bind(console);
  * @param {LicenseCheckOptions} options Controls the license checker's behavior.
  * @returns {Promise<ModuleInfos>} All information on dependencies found by the license checker.
  */
-export const runLicenseCheck = async (options) => {
+export const runLicenseCheck = async (
+  options: LicenseCheckOptions,
+): Promise<ModuleInfos> => {
   debugLog("scanning %s", options.start);
 
   // customPath is a path to a JSON file that defined a custom format
@@ -168,7 +171,7 @@ export const runLicenseCheck = async (options) => {
 
   // 'results' might be longer than 'installedPackagesJson.dependencies', as it appends the version numbers to each key (package name),
   // e.g. 'grunt@1' instead of 'grunt', and this way contains all different installed versions of each package:
-  let results = collectLicenseResults({
+  const results = collectLicenseResults({
     args: options,
     basePath: options.relativeLicensePath ? installedPackagesJson.path : null,
     clarifications,
@@ -185,21 +188,21 @@ export const runLicenseCheck = async (options) => {
   }
 
   const colorize = options.color;
-  const sorted = {}; // 'sorted' will store the same items as results, but sorted by package name and version
-  let resultJson = {};
+  const sorted: ModuleInfos = {}; // 'sorted' will store the same items as results, but sorted by package name and version
+  let resultJson: ModuleInfos = {};
   const excludeLicenses = options.excludeLicenses
     ?.match(/([^\\\][^,]|\\,)+/g)
-    .map((license) => license.replace(/\\,/g, ",").replace(/^\s+|\s+$/g, ""));
+    ?.map((license) => license.replace(/\\,/g, ",").replace(/^\s+|\s+$/g, ""));
   const includeLicenses = options.includeLicenses
     ?.match(/([^\\\][^,]|\\,)+/g)
-    .map((license) => license.replace(/\\,/g, ",").replace(/^\s+|\s+$/g, ""));
+    ?.map((license) => license.replace(/\\,/g, ",").replace(/^\s+|\s+$/g, ""));
 
-  const colorizeString = (string) =>
+  const colorizeString = (string: string) =>
     colorize ? chalk.bold.red(string) : string;
 
   // This following block stores the licenses in the sorted object (before, the sorted object is the empty object):
   Object.keys(results)
-    .sort()
+    .toSorted()
     .forEach((item) => {
       if (results[item].private) {
         results[item].licenses = colorizeString(LICENSE_TITLE_UNLICENSED);
@@ -213,20 +216,24 @@ export const runLicenseCheck = async (options) => {
         options.unknown &&
         results[item].licenses &&
         results[item].licenses !== LICENSE_TITLE_UNKNOWN &&
-        results[item].licenses.indexOf("*") > -1
+        String(results[item].licenses).indexOf("*") > -1
       ) {
         results[item].licenses = colorizeString(LICENSE_TITLE_UNKNOWN);
       }
 
       if (results[item]) {
-        if (options.relativeModulePath && results[item].path != null) {
+        if (
+          options.relativeModulePath &&
+          results[item].path !== null &&
+          results[item].path !== undefined
+        ) {
           results[item].path = path.relative(options.start, results[item].path);
         }
 
         if (options.onlyunknown) {
           if (
-            results[item].licenses.indexOf("*") > -1 ||
-            results[item].licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1
+            String(results[item].licenses).indexOf("*") > -1 ||
+            String(results[item].licenses).indexOf(LICENSE_TITLE_UNKNOWN) > -1
           ) {
             sorted[item] = results[item];
           }
@@ -235,9 +242,6 @@ export const runLicenseCheck = async (options) => {
         }
       }
     });
-
-  // 'results' is not needed anymore:
-  results = null;
 
   let noPackagesFoundError;
   if (!Object.keys(sorted).length) {
@@ -349,9 +353,13 @@ export const runLicenseCheck = async (options) => {
  * @param {(err: Error | null, ret: ModuleInfos) => void} callback Called after the checker finished.
  * @deprecated Will be removed in a future version. Please switch to {@link runLicenseCheck} instead.
  */
-export const init = (args, callback) => {
+export const init = (
+  args: LicenseCheckOptions,
+  callback: (error: Error | null, results: ModuleInfos) => void,
+): void => {
   runLicenseCheck(args).then(
     (result) => callback(null, result),
-    (error) => callback(error, {}),
+    (error: unknown) =>
+      callback(error instanceof Error ? error : new Error(String(error)), {}),
   );
 };

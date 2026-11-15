@@ -1,3 +1,5 @@
+import type { DependencyPackage, LicenseCheckOptions } from "../types.js";
+
 /**
  * This function has a wanted side effect, as it modifies the package tree that is passed by reference.
  *
@@ -11,9 +13,9 @@ export function deleteNonDirectDependencies(
     _dependencies: directDependencies = {},
     dependencies: allDependencies = {},
     devDependencies = {},
-  },
-  options,
-) {
+  }: DependencyPackage,
+  options: Pick<LicenseCheckOptions, "production" | "development">,
+): void {
   const allDependenciesArray = Object.keys(allDependencies);
   const directDependenciesArray = Object.keys(directDependencies);
   const devDependenciesArray = Object.keys(devDependencies);

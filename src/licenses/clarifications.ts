@@ -1,13 +1,17 @@
 import { readJson } from "../files/read-json.js";
+import type { Clarification, Clarifications } from "../types.js";
 
-export function readClarifications(clarificationsFile) {
-  const clarifications = {};
+export function readClarifications(
+  clarificationsFile?: string,
+): Clarifications {
+  const clarifications: Clarifications = {};
 
   if (!clarificationsFile) {
     return clarifications;
   }
 
-  const clarificationsFromFile = readJson(clarificationsFile);
+  const clarificationsFromFile =
+    readJson<Record<string, Partial<Clarification>>>(clarificationsFile);
 
   for (const [versionString, clarification] of Object.entries(
     clarificationsFromFile,
@@ -25,7 +29,9 @@ export function readClarifications(clarificationsFile) {
   return clarifications;
 }
 
-export function assertAllClarificationsWereUsed(clarifications) {
+export function assertAllClarificationsWereUsed(
+  clarifications: Clarifications,
+): void {
   const unusedClarifications = [];
 
   for (const [packageName, entries] of Object.entries(clarifications)) {

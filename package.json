@@ -61,7 +61,13 @@
     "treeify": "^1.1.0"
   },
   "devDependencies": {
+    "@types/debug": "^4.1.13",
+    "@types/lodash.clonedeep": "^4.5.9",
     "@types/node": "^26.6.6",
+    "@types/nopt": "^3.0.32",
+    "@types/semver": "^7.8.0",
+    "@types/spdx-expression-parse": "^4.0.0",
+    "@types/treeify": "^1.0.3",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
     "typescript": "^7.0.2"

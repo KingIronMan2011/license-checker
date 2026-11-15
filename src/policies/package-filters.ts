@@ -1,4 +1,8 @@
-export const getOptionArray = (option) => {
+import type { ModuleInfos } from "../types.js";
+
+export const getOptionArray = (
+  option: string | string[] | undefined,
+): string[] | false => {
   if (Array.isArray(option)) {
     return option;
   }
@@ -10,13 +14,19 @@ export const getOptionArray = (option) => {
   return false;
 };
 
-const matchesPackageSelector = (packageName, selector) =>
+const matchesPackageSelector = (
+  packageName: string,
+  selector: string,
+): boolean =>
   packageName.startsWith(
     selector.lastIndexOf("@") > 0 ? selector : `${selector}@`,
   );
 
-export const includePackages = (whitelist, packages) => {
-  const resultJson = {};
+export const includePackages = (
+  whitelist: string[],
+  packages: ModuleInfos,
+): ModuleInfos => {
+  const resultJson: ModuleInfos = {};
 
   Object.keys(packages).forEach((packageName) => {
     // Whitelist packages by declaring:
@@ -35,8 +45,11 @@ export const includePackages = (whitelist, packages) => {
   return resultJson;
 };
 
-export const excludePackages = (blacklist, packages) => {
-  const resultJson = {};
+export const excludePackages = (
+  blacklist: string[],
+  packages: ModuleInfos,
+): ModuleInfos => {
+  const resultJson: ModuleInfos = {};
 
   Object.keys(packages).forEach((packageName) => {
     // Blacklist packages by declaring:
@@ -55,7 +68,10 @@ export const excludePackages = (blacklist, packages) => {
   return resultJson;
 };
 
-export const excludePackagesStartingWith = (blacklist, packages) => {
+export const excludePackagesStartingWith = (
+  blacklist: string[],
+  packages: ModuleInfos,
+): ModuleInfos => {
   const resultJson = { ...packages };
 
   for (const packageName in resultJson) {
@@ -69,7 +85,7 @@ export const excludePackagesStartingWith = (blacklist, packages) => {
   return resultJson;
 };
 
-export const excludePrivatePackages = (packages) => {
+export const excludePrivatePackages = (packages: ModuleInfos): ModuleInfos => {
   const resultJson = { ...packages };
 
   Object.keys(resultJson).forEach((packageName) => {
