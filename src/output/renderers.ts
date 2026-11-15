@@ -33,8 +33,7 @@ function asTreeObject(value: Record<string, unknown>): string {
   return lines.length ? `${lines.join("\n")}\n` : "";
 }
 
-export const asTree = (sorted: ModuleInfos): string =>
-  asTreeObject(sorted as unknown as Record<string, unknown>);
+export const asTree = (sorted: ModuleInfos): string => asTreeObject(sorted);
 
 export const asSummary = (sorted: ModuleInfos): string => {
   const licenseCountMap = new global.Map<string, number>();
@@ -109,16 +108,15 @@ export const asPlainVertical = (sorted: ModuleInfos): string =>
         Array.isArray(moduleData.licenses) &&
         moduleData.licenses.length > 0
       ) {
-        // biome-ignore lint/suspicious/useIterableCallbackReturn: TODO we'll have to check if "moduleData.licenses" can contain something that might not be handled inside the map callback
-        licenseText += moduleData.licenses.map((moduleLicense) => {
-          if (typeof moduleLicense === "object") {
-            return moduleLicense.type || moduleLicense.name;
-          }
-
-          if (typeof moduleLicense === "string") {
-            return moduleLicense;
-          }
-        });
+        licenseText += moduleData.licenses
+          .flatMap((moduleLicense) =>
+            typeof moduleLicense === "string"
+              ? [moduleLicense]
+              : [moduleLicense.type || moduleLicense.name].filter(
+                  (license): license is string => Boolean(license),
+                ),
+          )
+          .join(",");
       } else if (
         !Array.isArray(moduleData.licenses) &&
         moduleData.licenses !== undefined &&

@@ -413,8 +413,8 @@ function normalizeGplTerm(term: SpdxLicense): SpdxLicense {
 }
 
 type VersionRangeEntry = string | readonly string[];
-const versionRanges =
-  SPDX_VERSION_RANGES as unknown as readonly (readonly VersionRangeEntry[])[];
+const versionRanges: readonly (readonly VersionRangeEntry[])[] =
+  SPDX_VERSION_RANGES;
 
 function isInVersionRange(first: string, second: string): boolean {
   return versionRanges.some((range) => {

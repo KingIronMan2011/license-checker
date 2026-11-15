@@ -45,45 +45,6 @@ export const shortHands = {
   v: ["--version"],
 };
 
-/**
- * @typedef {Object} ParsedArguments Parsed command-line arguments.
- * @property {boolean=} angularCli Output in Angular CLI-compatible plain vertical format.
- * @property {string=} clarificationsFile Path to a license clarifications file.
- * @property {boolean=} clarificationsMatchAll Require every clarification to match a package.
- * @property {(boolean | null)=} color Colorize output.
- * @property {boolean=} csv Output in CSV format.
- * @property {string=} csvComponentPrefix Prefix column for component in CSV format.
- * @property {string=} customPath Path to a JSON file that defines a custom output format.
- * @property {(string | number)=} depth Recurse dependencies up to a specific depth.
- * @property {boolean=} development Only show development dependencies.
- * @property {(string | boolean | number | null)=} direct Look for direct dependencies only.
- * @property {string=} excludeLicenses Exclude modules which licenses are in the comma-separated list from the output.
- * @property {string=} excludePackages Restrict output to the packages not in the semicolon-separated list.
- * @property {string=} excludePackagesStartingWith Exclude modules starting with a specific string.
- * @property {boolean=} excludePrivatePackages Restrict output to not include any package marked as private.
- * @property {string=} failOn Fail on the first occurrence of a license in the semicolon-separated list.
- * @property {string=} files Path to write output files to.
- * @property {boolean=} help Show help output.
- * @property {string=} includeLicenses Include modules which licenses are in the comma-separated list in the output.
- * @property {string=} includePackages Restrict output to the packages in the semicolon-separated list.
- * @property {boolean=} json Output in JSON format.
- * @property {string=} limitAttributes Restrict formatted JSON output to a specific set of fields.
- * @property {boolean=} markdown Output in Markdown format.
- * @property {boolean=} nopeer Ignore peerDependencies.
- * @property {string=} onlyAllow Fail on the first occurrence of a license not in the semicolon-separated list.
- * @property {boolean=} onlyunknown Only list packages with unknown or guessed licenses.
- * @property {string=} out Write the data to a specific file.
- * @property {boolean=} plainVertical Output in plain vertical format.
- * @property {boolean=} production Only show production dependencies.
- * @property {boolean=} relativeLicensePath Output license file locations as relative paths.
- * @property {boolean=} relativeModulePath Output module locations as relative paths.
- * @property {boolean=} silent Suppress the terminal license report.
- * @property {string=} start Path to start checking dependencies from.
- * @property {boolean=} summary Output a summary of the license usage.
- * @property {boolean=} unknown Report guessed licenses as unknown licenses.
- * @property {boolean=} version Show version output.
- */
-
 function normalizeArgv(args: string[] = process.argv) {
   if (Array.isArray(args) && (args.length === 0 || args[0]?.startsWith("-"))) {
     return [process.execPath, "license-checker-rseidelsohn", ...args];
@@ -95,8 +56,7 @@ function normalizeArgv(args: string[] = process.argv) {
 /**
  * Parses command-line arguments.
  *
- * @param {string[]} [args] Command-line arguments to parse.
- * @returns {ParsedArguments} Parsed command-line arguments.
+ * @param args Command-line arguments to parse.
  */
 function parseArguments(args: string[] = process.argv): ParsedArguments {
   const argv = normalizeArgv(args).slice(2);
@@ -185,8 +145,7 @@ function parseArguments(args: string[] = process.argv): ParsedArguments {
  * - Passing in a number will be interpreted as that number
  * - Passing in any other value that can't be recognized as a number will be interpreted as Infinity
  *
- * @param {boolean | number | string | undefined} value
- * @returns number
+ * @param value Value passed to `--direct` or `--depth`.
  */
 function toDepthNumber(
   value:
@@ -230,21 +189,9 @@ function depthStringToNumber(depthString: string): number {
 }
 
 /**
- * @typedef {ParsedArguments & {
- *   color: boolean,
- *   direct: number,
- *   relativeLicensePath: boolean,
- *   relativeModulePath: boolean,
- *   start: string,
- *   depth: number
- * }} ArgumentsWithDefaults Parsed command-line arguments with defaults applied.
- */
-
-/**
  * Applies default values to parsed command-line arguments.
  *
- * @param {ParsedArguments} parsedArguments Parsed command-line arguments.
- * @returns {ArgumentsWithDefaults} Parsed command-line arguments with defaults applied.
+ * @param parsedArguments Parsed command-line arguments.
  */
 export function setDefaultArguments(
   parsedArguments: ParsedArguments = {},

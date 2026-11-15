@@ -7,26 +7,19 @@ const BASENAMES_PRECEDENCE = [
   /^LICENCE-\w+$/, // e.g. LICENCE-MIT
   /^MIT-LICENSE$/,
   /^COPYING$/,
-  /^README$/, // TODO: should we really include README?
+  /^README$/, // Use README as a low-priority fallback license source.
 ];
 
 // Find and list license files in the precedence order
 export const findLicenseFiles = (dirFiles: string[]): string[] => {
   const files: string[] = [];
 
-  BASENAMES_PRECEDENCE.forEach((basenamePattern) => {
-    dirFiles.some((filename) => {
-      const basename = getBaseFileName(filename);
-
-      if (basenamePattern.test(basename)) {
-        files.push(filename);
-
-        return true;
-      }
-
-      return false;
-    });
-  });
+  for (const basenamePattern of BASENAMES_PRECEDENCE) {
+    const matchingFile = dirFiles.find((filename) =>
+      basenamePattern.test(getBaseFileName(filename)),
+    );
+    if (matchingFile) files.push(matchingFile);
+  }
 
   return files;
 };

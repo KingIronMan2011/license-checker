@@ -164,7 +164,7 @@ const collectPackageLicenseInfo = ({
     moduleInfo.path = modulePath;
   }
 
-  // Eventually store the contents of the module's README.md in currentExtendedPackageJson.readme:
+  // Load the module README into package metadata when available.
   storeReadmeInPackageJsonIfExists(modulePath, currentExtendedPackageJson);
 
   // Try to get the license information from the clarification file or from the package.json file:
@@ -176,23 +176,16 @@ const collectPackageLicenseInfo = ({
   if (licenseData) {
     // License information has been collected from either the clarification file or from the package.json file
     if (Array.isArray(licenseData) && licenseData.length > 0) {
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: TODO we'll have to check if "licenseData" can contain something that might not be handled inside the map callback
-      moduleInfo.licenses = licenseData
-        .map((moduleLicense) => {
-          const moduleLicenseTypeOrName =
-            typeof moduleLicense === "string"
-              ? moduleLicense
-              : firstDefined(moduleLicense.type, moduleLicense.name);
+      moduleInfo.licenses = licenseData.flatMap((moduleLicense) => {
+        const moduleLicenseTypeOrName =
+          typeof moduleLicense === "string"
+            ? moduleLicense
+            : firstDefined(moduleLicense.type, moduleLicense.name);
 
-          if (typeof moduleLicenseTypeOrName === "string") {
-            return moduleLicenseTypeOrName;
-          }
-
-          if (typeof moduleLicense === "string") {
-            return moduleLicense;
-          }
-        })
-        .filter((license): license is string => typeof license === "string");
+        return typeof moduleLicenseTypeOrName === "string"
+          ? [moduleLicenseTypeOrName]
+          : [];
+      });
     } else if (!Array.isArray(licenseData) && typeof licenseData === "object") {
       const licenseTitle = detectLicenseTitle(
         firstDefined(licenseData.type, licenseData.name),
@@ -232,153 +225,154 @@ const collectPackageLicenseInfo = ({
     });
   }
 
-  licenseFilesInCurrentModuleDirectory.forEach(
-    function findBetterLicenseData(filename, index) {
-      if (!modulePath) return;
-      licenseFile = path.join(modulePath, filename);
-      // Checking that the file is in fact a normal file and not a directory for example.
-      if (fs.lstatSync(licenseFile).isFile()) {
-        let currentLicenceFilesContent;
+  for (const [
+    index,
+    filename,
+  ] of licenseFilesInCurrentModuleDirectory.entries()) {
+    if (!modulePath) continue;
+    licenseFile = path.join(modulePath, filename);
+    // Checking that the file is in fact a normal file and not a directory for example.
+    if (fs.lstatSync(licenseFile).isFile()) {
+      let currentLicenceFilesContent;
 
-        if (
-          !moduleInfo.licenses ||
-          (Array.isArray(moduleInfo.licenses)
-            ? moduleInfo.licenses.some(
-                (license) => license === LICENSE_TITLE_UNKNOWN,
-              )
-            : typeof moduleInfo.licenses === "string" &&
-              moduleInfo.licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1)
-          // TODO: Should we override a custom license?
-          // || moduleInfo.licenses.indexOf('Custom:') === 0
-        ) {
-          //Only re-check the license if we didn't get it from elsewhere
-          currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-            encoding: "utf8",
-          });
+      if (
+        !moduleInfo.licenses ||
+        (Array.isArray(moduleInfo.licenses)
+          ? moduleInfo.licenses.some(
+              (license) => license === LICENSE_TITLE_UNKNOWN,
+            )
+          : typeof moduleInfo.licenses === "string" &&
+            moduleInfo.licenses.indexOf(LICENSE_TITLE_UNKNOWN) > -1)
+        // TODO: Should we override a custom license?
+        // || moduleInfo.licenses.indexOf('Custom:') === 0
+      ) {
+        //Only re-check the license if we didn't get it from elsewhere
+        currentLicenceFilesContent = fs.readFileSync(licenseFile, {
+          encoding: "utf8",
+        });
 
-          const licenseTitle = detectLicenseTitle(currentLicenceFilesContent);
-          if (licenseTitle) moduleInfo.licenses = licenseTitle;
+        const licenseTitle = detectLicenseTitle(currentLicenceFilesContent);
+        if (licenseTitle) moduleInfo.licenses = licenseTitle;
+      }
+
+      if (index === 0) {
+        // Treat the file with the highest precedence as licenseFile
+        if (clarification !== undefined && !passedClarificationCheck) {
+          if (!currentLicenceFilesContent) {
+            currentLicenceFilesContent = fs.readFileSync(licenseFile, {
+              encoding: "utf8",
+            });
+          }
+
+          const sha256 = createHash("sha256")
+            .update(currentLicenceFilesContent)
+            .digest("hex");
+          if (clarification.checksum !== sha256) {
+            throw new Error(
+              `Clarification checksum mismatch for ${currentPackageNameAndVersion} :(\nFile checked: ${licenseFile}`,
+            );
+          }
+
+          passedClarificationCheck = true;
         }
 
-        if (index === 0) {
-          // Treat the file with the highest precedence as licenseFile
-          if (clarification !== undefined && !passedClarificationCheck) {
+        if (mustInclude("licenseFile")) {
+          moduleInfo.licenseFile = firstDefined(
+            clarification?.licenseFile,
+            options.basePath
+              ? path.relative(options.basePath, licenseFile)
+              : licenseFile,
+          );
+        }
+
+        if (mustInclude("licenseText") && options.customFormat) {
+          if (clarification?.licenseText) {
+            moduleInfo.licenseText = clarification.licenseText;
+          } else {
             if (!currentLicenceFilesContent) {
               currentLicenceFilesContent = fs.readFileSync(licenseFile, {
                 encoding: "utf8",
               });
             }
 
-            const sha256 = createHash("sha256")
-              .update(currentLicenceFilesContent)
-              .digest("hex");
-            if (clarification.checksum !== sha256) {
-              throw new Error(
-                `Clarification checksum mismatch for ${currentPackageNameAndVersion} :(\nFile checked: ${licenseFile}`,
-              );
+            if (options.args && !options.args.csv) {
+              moduleInfo.licenseText = currentLicenceFilesContent.trim();
+            } else {
+              moduleInfo.licenseText = currentLicenceFilesContent
+                .replace(/"/g, "'")
+                .replace(/\r?\n|\r/g, " ")
+                .trim();
             }
-
-            passedClarificationCheck = true;
           }
 
-          if (mustInclude("licenseFile")) {
-            moduleInfo.licenseFile = firstDefined(
-              clarification?.licenseFile,
-              options.basePath
-                ? path.relative(options.basePath, licenseFile)
-                : licenseFile,
+          if (clarification?.licenseStart) {
+            const startIndex = moduleInfo.licenseText.indexOf(
+              clarification.licenseStart,
+            );
+            let endIndex;
+
+            if (clarification?.licenseEnd) {
+              endIndex = moduleInfo.licenseText.indexOf(
+                clarification.licenseEnd,
+                startIndex,
+              );
+            } else {
+              endIndex = moduleInfo.licenseText.length;
+            }
+
+            moduleInfo.licenseText = moduleInfo.licenseText.substring(
+              startIndex,
+              endIndex,
             );
           }
+        }
 
-          if (mustInclude("licenseText") && options.customFormat) {
-            if (clarification?.licenseText) {
-              moduleInfo.licenseText = clarification.licenseText;
-            } else {
-              if (!currentLicenceFilesContent) {
-                currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-                  encoding: "utf8",
-                });
-              }
-
-              if (options.args && !options.args.csv) {
-                moduleInfo.licenseText = currentLicenceFilesContent.trim();
-              } else {
-                moduleInfo.licenseText = currentLicenceFilesContent
-                  .replace(/"/g, "'")
-                  .replace(/\r?\n|\r/g, " ")
-                  .trim();
-              }
+        if (mustInclude("copyright") && options.customFormat) {
+          if (clarification?.copyright) {
+            moduleInfo.copyright = clarification.copyright;
+          } else {
+            if (!currentLicenceFilesContent) {
+              currentLicenceFilesContent = fs.readFileSync(licenseFile, {
+                encoding: "utf8",
+              });
             }
 
-            if (clarification?.licenseStart) {
-              const startIndex = moduleInfo.licenseText.indexOf(
-                clarification.licenseStart,
-              );
-              let endIndex;
+            const linesWithCopyright = getCopyrightLines(
+              currentLicenceFilesContent,
+            );
 
-              if (clarification?.licenseEnd) {
-                endIndex = moduleInfo.licenseText.indexOf(
-                  clarification.licenseEnd,
-                  startIndex,
-                );
-              } else {
-                endIndex = moduleInfo.licenseText.length;
-              }
-
-              moduleInfo.licenseText = moduleInfo.licenseText.substring(
-                startIndex,
-                endIndex,
-              );
+            if (linesWithCopyright.length > 0) {
+              moduleInfo.copyright = linesWithCopyright[0]
+                .replace(/\n/g, ". ")
+                .trim();
             }
-          }
 
-          if (mustInclude("copyright") && options.customFormat) {
-            if (clarification?.copyright) {
-              moduleInfo.copyright = clarification.copyright;
-            } else {
-              if (!currentLicenceFilesContent) {
-                currentLicenceFilesContent = fs.readFileSync(licenseFile, {
-                  encoding: "utf8",
-                });
-              }
-
-              const linesWithCopyright = getCopyrightLines(
-                currentLicenceFilesContent,
-              );
-
-              if (linesWithCopyright.length > 0) {
-                moduleInfo.copyright = linesWithCopyright[0]
-                  .replace(/\n/g, ". ")
-                  .trim();
-              }
-
-              // Mark files with multiple copyright statements. This might be
-              // an indicator to take a closer look at the LICENSE file.
-              if (linesWithCopyright.length > 1) {
-                moduleInfo.copyright = `${moduleInfo.copyright}*`;
-              }
+            // Mark files with multiple copyright statements. This might be
+            // an indicator to take a closer look at the LICENSE file.
+            if (linesWithCopyright.length > 1) {
+              moduleInfo.copyright = `${moduleInfo.copyright}*`;
             }
           }
         }
       }
-    },
-  );
+    }
+  }
 
   if (!passedClarificationCheck) {
     throw new Error("All clarifications must come with a checksum");
   }
 
   // TODO: How do clarifications interact with notice files?
-  noticeFiles.forEach((filename) => {
+  for (const filename of noticeFiles) {
     const packagePath = currentExtendedPackageJson.path;
-    if (!packagePath) return;
+    if (!packagePath) continue;
     const file = path.join(packagePath, filename);
     if (fs.lstatSync(file).isFile()) {
       moduleInfo.noticeFile = options.basePath
         ? path.relative(options.basePath, file)
         : file;
     }
-  });
+  }
 
   if (!currentExtendedPackageJson.name || !currentExtendedPackageJson.version) {
     delete data[currentPackageNameAndVersion];
@@ -406,20 +400,6 @@ const collectPackageLicenseInfo = ({
   return true;
 };
 
-/**
- * @param {{
- *   args?: Record<string, unknown>,
- *   basePath?: string | null,
- *   clarifications?: Record<string, Array<Record<string, unknown>>>,
- *   customFormat?: Record<string, unknown>,
- *   development?: boolean,
- *   direct?: number | boolean | string | null,
- *   production?: boolean,
- *   rootPackage: Record<string, unknown>,
- *   unknown?: boolean
- * }} options
- * @returns {Record<string, Record<string, unknown>>}
- */
 export const collectLicenseResults = ({
   args,
   basePath,

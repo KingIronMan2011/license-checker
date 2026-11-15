@@ -39,88 +39,9 @@ const debugLog = createDebugLogger(
 );
 
 /**
- * Custom output field default value or toggle.
- *
- * For CSV output, custom format keys define the output columns after module_name.
- * For JSON output, custom format keys add or populate fields in addition to the usual result fields.
- * A value of false disables optional population for that field where supported, but does not remove core fields such as
- * licenses.
- *
- * Use limitAttributes to restrict formatted JSON output to a specific set of fields.
- *
- * @typedef {(string | boolean | undefined)} CustomFormatValue
- */
-
-/**
- * @typedef {Record<string, CustomFormatValue>} CustomFormat
- */
-
-/**
- * @typedef {Object} LicenseCheckOptions Options struct for the init() and runLicenseCheck() functions.
- * @property {string} start Path to start checking dependencies from.
- * @property {boolean=} production Only show production dependencies.
- * @property {boolean=} development Only show development dependencies.
- * @property {boolean=} unknown Report guessed licenses as unknown licenses.
- * @property {boolean=} onlyunknown Only list packages with unknown or guessed licenses.
- * @property {boolean=} json Output in JSON format.
- * @property {boolean=} csv Output in CSV format.
- * @property {string=} csvComponentPrefix Prefix column for component in CSV format.
- * @property {string=} out Write the data to a specific file.
- * @property {string=} customPath Path to a JSON file that defines a custom output format.
- * @property {string=} excludeLicenses Exclude modules which licenses are in the comma-separated list from the output.
- * @property {boolean=} relativeLicensePath Output the location of the license files as relative paths.
- * @property {boolean=} relativeModulePath Output module locations as relative paths.
- * @property {boolean=} summary Output a summary of the license usage.
- * @property {string=} failOn Fail (exit with code 1) on the first occurrence of the licenses of the semicolon-separated list.
- * @property {string=} onlyAllow Fail (exit with code 1) on the first occurrence of the licenses not in the semicolon-separated list.
- * @property {string=} includePackages Restrict output to the packages (package@version) in the semicolon-separated list.
- * @property {string=} excludePackages Restrict output to the packages (package@version) not in the semicolon-separated list.
- * @property {boolean=} excludePrivatePackages Restrict output to not include any package marked as private.
- * @property {string=} excludePackagesStartingWith Exclude modules starting with a specific string.
- * @property {(boolean | number)=} direct Look for direct dependencies only.
- * @property {number=} depth Recurse dependencies up to a specific depth, overrides "direct".
- * @property {boolean=} color Colorize output.
- * @property {CustomFormat=} customFormat Custom output fields and default values.
- * @property {boolean=} nopeer Ignore peerDependencies.
- * @property {string=} clarificationsFile A file that contains license clarifications for malformed or non-standard packages.
- * @property {boolean=} clarificationsMatchAll Require every clarification to match a package.
- * @property {string=} includeLicenses Include modules which licenses are in the comma-separated list in the output.
- * @property {string=} files Path to write output files to.
- */
-
-/**
- * @typedef {Object} KnownModuleInfo Information about one dependency.
- * @property {string=} name Module name.
- * @property {string=} version Module version.
- * @property {string=} description Module description.
- * @property {string=} repository Repository URL.
- * @property {string=} publisher Publisher name.
- * @property {string=} email Publisher e-mail.
- * @property {string=} url Publisher URL.
- * @property {(string | string[])=} licenses Detected license(s).
- * @property {string=} licenseFile Path to license file, if available.
- * @property {string=} licenseText Contents of the license.
- * @property {string=} licenseModified Whether the license is modified.
- * @property {boolean=} private Private module.
- * @property {string=} path Path to module.
- * @property {boolean=} relativeModulePath Output module locations as relative paths.
- * @property {string=} copyright Copyright statements.
- * @property {string=} noticeFile Path of NOTICE file.
- */
-
-/**
- * @typedef {KnownModuleInfo & Record<string, string | string[] | boolean | undefined>} ModuleInfo
- */
-
-/**
- * @typedef {Record<string, ModuleInfo>} ModuleInfos
- */
-
-/**
  * Checks licenses based on the given options.
  *
- * @param {LicenseCheckOptions} options Controls the license checker's behavior.
- * @returns {Promise<ModuleInfos>} All information on dependencies found by the license checker.
+ * @param options Controls the license checker's behavior.
  */
 export const runLicenseCheck = async (
   options: LicenseCheckOptions,
@@ -347,8 +268,8 @@ export const runLicenseCheck = async (
 /**
  * Runs the license check for the given args.
  *
- * @param {LicenseCheckOptions} args Specifies the path to the module to check dependencies of.
- * @param {(err: Error | null, ret: ModuleInfos) => void} callback Called after the checker finished.
+ * @param args Specifies the path to the module to check dependencies of.
+ * @param callback Called after the checker finished.
  * @deprecated Will be removed in a future version. Please switch to {@link runLicenseCheck} instead.
  */
 export const init = (
