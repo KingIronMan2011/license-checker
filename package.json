@@ -50,12 +50,10 @@
   "dependencies": {
     "@npmcli/arborist": "10.0.4",
     "@npmcli/package-json": "8.0.1",
-    "debug": "^4.4.3",
     "nopt": "10.0.1",
     "treeify": "^1.1.0"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.13",
     "@types/node": "^26.6.6",
     "@types/nopt": "^3.0.32",
     "@types/treeify": "^1.0.3",

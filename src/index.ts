@@ -1,7 +1,5 @@
 import path from "node:path";
 
-import debug from "debug";
-
 import { deleteNonDirectDependencies } from "./dependencies/direct-dependencies.js";
 import readInstalledPackages from "./dependencies/read-installed-packages.js";
 import { readJson } from "./files/read-json.js";
@@ -28,17 +26,17 @@ import {
   getOptionArray,
   includePackages,
 } from "./policies/package-filters.js";
+import { createDebugLogger } from "./shared/debug.js";
 import type { LicenseCheckOptions, ModuleInfos } from "./types.js";
 
 const LICENSE_TITLE_UNKNOWN = "UNKNOWN";
 const LICENSE_TITLE_UNLICENSED = "UNLICENSED";
 
-// Set up debug logging
-// https://www.npmjs.com/package/debug#stderr-vs-stdout
-const debugError = debug("license-checker-rseidelsohn:error");
-const debugLog = debug("license-checker-rseidelsohn:log");
-
-debugLog.log = console.log.bind(console);
+const debugError = createDebugLogger("license-checker-rseidelsohn:error");
+const debugLog = createDebugLogger(
+  "license-checker-rseidelsohn:log",
+  console.log.bind(console),
+);
 
 /**
  * Custom output field default value or toggle.
