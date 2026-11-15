@@ -1,11 +1,8 @@
 import path from "node:path";
 
-import nopt from "nopt";
-
 import { supportsBasicColor } from "../output/ansi.js";
 import type { NormalizedArguments, ParsedArguments } from "../types.js";
 
-// For the format requirements of "knownOptions", see the documentation for nopt: https://www.npmjs.com/package/nopt
 export const knownOptions = {
   angularCli: Boolean,
   clarificationsFile: path,
@@ -42,14 +39,13 @@ export const knownOptions = {
   unknown: Boolean,
   version: Boolean,
 };
-// For the format requirements of "shortHands", see the documentation for nopt: https://www.npmjs.com/package/nopt
 export const shortHands = {
   h: ["--help"],
   v: ["--version"],
 };
 
 /**
- * @typedef {Object} ParsedArguments Parsed command-line arguments from nopt.
+ * @typedef {Object} ParsedArguments Parsed command-line arguments.
  * @property {boolean=} angularCli Output in Angular CLI-compatible plain vertical format.
  * @property {string=} clarificationsFile Path to a license clarifications file.
  * @property {boolean=} clarificationsMatchAll Require every clarification to match a package.
@@ -101,26 +97,79 @@ function normalizeArgv(args: string[] = process.argv) {
  * @returns {ParsedArguments} Parsed command-line arguments.
  */
 function parseArguments(args: string[] = process.argv): ParsedArguments {
-  // nopt is an option parser that returns an object looking like this, if you pass the params '--one --two here there -- --three --four':
-  //
-  // parsedArguments {
-  //   one: true,
-  //   two: true,
-  //   argv: {
-  //     remain: [ 'here', 'there', '--three', '--four' ],
-  //     cooked: [ '--one', '--two', 'here', 'there', '--', '--three', '--four' ], // contains the expanded shorthand options
-  //     original: [ '--one', '--two', 'here', 'there', '--', '--three', '--four' ]
-  //   }
-  // }
-  const parsedArguments = nopt(
-    knownOptions,
-    shortHands,
-    normalizeArgv(args),
-  ) as ParsedArguments & { argv?: unknown };
+  const argv = normalizeArgv(args).slice(2);
+  const parsedArguments: Record<string, unknown> = {};
+  const optionNames = Object.keys(knownOptions);
 
-  delete parsedArguments.argv;
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (!argument?.startsWith("-")) continue;
+    if (/^-{2,}$/.test(argument)) break;
 
-  return parsedArguments;
+    const equalIndex = argument.indexOf("=");
+    const hasEquals = equalIndex >= 0;
+    let name = argument.replace(/^-+/, "");
+    let valueFromEquals: string | undefined;
+    if (hasEquals) {
+      valueFromEquals = name.slice(name.indexOf("=") + 1);
+      name = name.slice(0, name.indexOf("="));
+    }
+
+    if (name === "h" || name === "v") name = name === "h" ? "help" : "version";
+    else if (name.length > 1 && !optionNames.includes(name)) {
+      const matches = optionNames.filter((option) => option.startsWith(name));
+      if (matches.length === 1) name = matches[0];
+    }
+
+    let negated = false;
+    while (name.toLowerCase().startsWith("no-")) {
+      negated = !negated;
+      name = name.slice(3);
+    }
+    const kind = knownOptions[name as keyof typeof knownOptions];
+    const isBoolean = kind === Boolean;
+    let value: unknown;
+
+    if (isBoolean || negated) {
+      value = !negated;
+      const next = argv[index + 1];
+      if (!hasEquals && (next === "true" || next === "false")) {
+        value = next === "true";
+        index += 1;
+      }
+      if (hasEquals) {
+        value = !(
+          valueFromEquals === "false" ||
+          valueFromEquals === "0" ||
+          valueFromEquals === "null"
+        );
+      }
+      if (negated && Array.isArray(kind) && kind.includes(null)) value = null;
+    } else {
+      const next = hasEquals ? valueFromEquals : argv[index + 1];
+      if (next === undefined || next.startsWith("-")) {
+        value = kind === String ? "" : true;
+      } else {
+        value = next;
+        index += 1;
+      }
+
+      if (kind === Number && !Number.isNaN(Number(value)))
+        value = Number(value);
+      if (kind === path && value !== true) value = path.resolve(String(value));
+      if (kind === path && value === true) continue;
+    }
+
+    if (
+      kind === Number &&
+      typeof value === "string" &&
+      Number.isNaN(Number(value))
+    )
+      continue;
+    parsedArguments[name] = value;
+  }
+
+  return parsedArguments as ParsedArguments;
 }
 
 /**

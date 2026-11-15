@@ -181,22 +181,10 @@ importers:
       '@npmcli/package-json':
         specifier: 8.0.1
         version: 8.0.1
-      nopt:
-        specifier: 10.0.1
-        version: 10.0.1
-      treeify:
-        specifier: ^1.1.0
-        version: 1.1.0
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
-      '@types/nopt':
-        specifier: ^3.0.32
-        version: 3.0.32
-      '@types/treeify':
-        specifier: ^1.0.3
-        version: 1.0.3
       oxfmt:
         specifier: ^0.78.0
         version: 0.78.0
@@ -559,12 +547,6 @@ packages:
 
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
-
-  '@types/nopt@3.0.32':
-    resolution: {integrity: sha512-UP8QR0GaR8AE3l4wDmyCx4lEkX5o/1YVeDBqb1UqmfHefZqFNedQLTsobfzw56CvlXVVbt6kAwJJbN1yDTp16Q==}
-
-  '@types/treeify@1.0.3':
-    resolution: {integrity: sha512-hx0o7zWEUU4R2Amn+pjCBQQt23Khy/Dk56gQU5xi5jtPL1h83ACJCeFaB2M/+WO1AntvWrSoVnnCAfI1AQH4Cg==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -1052,10 +1034,6 @@ packages:
     resolution: {integrity: sha512-jBrmx4lYmaC9k/mgPbylxs7kBUxHtD8256up+HjLaDFfXScKJQyil+SWXSvhAtT7XHo+yTVlpB81PGmHP8oLSQ==}
     engines: {node: ^20.0.0 || >=22.0.0}
 
-  treeify@1.1.0:
-    resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
-    engines: {node: '>=0.6'}
-
   treeverse@3.0.0:
     resolution: {integrity: sha512-gcANaAnd2QDZFmHFEOF4k7uc1J/6a6z3DJMd/QwEyxLoKGiptJRwid582r7QIsFlFMIZ3SnxfS52S4hm2DHkuQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -1395,10 +1373,6 @@ snapshots:
   '@types/node@26.6.6':
     dependencies:
       undici-types: 8.9.0
-
-  '@types/nopt@3.0.32': {}
-
-  '@types/treeify@1.0.3': {}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
@@ -1876,8 +1850,6 @@ snapshots:
       picomatch: 4.0.7
 
   tinypool@2.2.0: {}
-
-  treeify@1.1.0: {}
 
   treeverse@3.0.0: {}
 

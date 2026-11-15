@@ -1,13 +1,40 @@
 import fs from "node:fs";
 
-import treeify from "treeify";
-import type { TreeObject } from "treeify";
-
 import { detectLicenseTitle } from "../licenses/detect-license-title.js";
 import type { CustomFormat, ModuleInfos } from "../types.js";
 
+function renderChildren(
+  value: Record<string, unknown>,
+  ancestorLastStates: boolean[],
+): string[] {
+  const keys = Object.keys(value);
+  return keys.flatMap((key, index) => {
+    const child = value[key];
+    const isLast = index === keys.length - 1;
+    const prefix = ancestorLastStates
+      .map((wasLast) => (wasLast ? "   " : "│  "))
+      .join("");
+    const isContainer = child !== null && typeof child === "object";
+    const line = `${prefix}${isLast ? "└" : "├"}─ ${key}${isContainer ? "" : `: ${String(child)}`}`;
+    return [
+      line,
+      ...(isContainer
+        ? renderChildren(child as Record<string, unknown>, [
+            ...ancestorLastStates,
+            isLast,
+          ])
+        : []),
+    ];
+  });
+}
+
+function asTreeObject(value: Record<string, unknown>): string {
+  const lines = renderChildren(value, []);
+  return lines.length ? `${lines.join("\n")}\n` : "";
+}
+
 export const asTree = (sorted: ModuleInfos): string =>
-  treeify.asTree(sorted as unknown as TreeObject, true, false);
+  asTreeObject(sorted as unknown as Record<string, unknown>);
 
 export const asSummary = (sorted: ModuleInfos): string => {
   const licenseCountMap = new global.Map<string, number>();
@@ -30,7 +57,7 @@ export const asSummary = (sorted: ModuleInfos): string => {
       sortedLicenseCountObj[license] = String(count);
     });
 
-  return treeify.asTree(sortedLicenseCountObj, true, false);
+  return asTreeObject(sortedLicenseCountObj);
 };
 
 /**
