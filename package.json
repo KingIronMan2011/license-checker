@@ -1,0 +1,61 @@
+{
+  "name": "@kingironman2011/license-checker",
+  "version": "1.0.0",
+  "description": "A NPM Package to check other packages licenses and extract them.",
+  "keywords": [
+    "checker",
+    "extractor",
+    "license",
+    "npm",
+    "package"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "KingIronMan2011",
+    "email": "IronMan@king-mc.de",
+    "url": "https://kingironman.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KingIronMan2011/license-checker.git"
+  },
+  "bin": {
+    "license-checker": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cli": "./dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": "^24",
+    "pnpm": "^12.21.0"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
